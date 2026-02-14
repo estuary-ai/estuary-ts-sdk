@@ -28,6 +28,8 @@ export type {
   MemoryGraphResponse,
   MemorySearchResponse,
   CoreFactsResponse,
+  MemoryData,
+  MemoryUpdatedEvent,
 } from './types';
 
 export { ConnectionState } from './types';

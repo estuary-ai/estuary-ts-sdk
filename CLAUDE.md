@@ -43,6 +43,7 @@ max_audio_sample_rate: 48000
 | device_pose | Not implemented | AR/VR only |
 | preferences | Implemented | updatePreferences() |
 | memory_rest_api | Implemented | client.memory.* methods |
+| memory_push | Implemented | memoryUpdated event for real-time extraction notifications |
 
 ## Architecture
 

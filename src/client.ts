@@ -207,6 +207,7 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
     this.socketManager.on('cameraCaptureRequest', (request) => this.emit('cameraCaptureRequest', request));
     this.socketManager.on('livekitConnected', (room) => this.emit('livekitConnected', room));
     this.socketManager.on('livekitDisconnected', () => this.emit('livekitDisconnected'));
+    this.socketManager.on('memoryUpdated', (event) => this.emit('memoryUpdated', event));
   }
 
   private handleBotVoice(voice: BotVoice): void {

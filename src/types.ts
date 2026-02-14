@@ -98,6 +98,17 @@ export interface WireCameraCaptureRequest {
   text?: string;
 }
 
+/** @internal — new_memories items are already camelCase from Memory.to_dict() */
+export interface WireMemoryUpdated {
+  agent_id: string;
+  player_id: string;
+  memories_extracted: number;
+  facts_extracted: number;
+  conversation_id: string;
+  new_memories: MemoryData[];
+  timestamp: string;
+}
+
 // ─── Public Types (camelCase) ────────────────────────────────────
 
 export interface SessionInfo {
@@ -151,6 +162,28 @@ export interface LiveKitTokenResponse {
 export interface CameraCaptureRequest {
   requestId: string;
   text?: string;
+}
+
+export interface MemoryData {
+  id: string;
+  content: string;
+  memoryType: string;
+  confidence: number;
+  status: string;
+  sourceConversationId: string;
+  sourceQuote?: string;
+  topic?: string;
+  createdAt: string;
+}
+
+export interface MemoryUpdatedEvent {
+  agentId: string;
+  playerId: string;
+  memoriesExtracted: number;
+  factsExtracted: number;
+  conversationId: string;
+  newMemories: MemoryData[];
+  timestamp: string;
 }
 
 // ─── Wire → Public Converters ────────────────────────────────────
@@ -232,6 +265,19 @@ export function toCameraCaptureRequest(wire: WireCameraCaptureRequest): CameraCa
   };
 }
 
+/** @internal */
+export function toMemoryUpdatedEvent(wire: WireMemoryUpdated): MemoryUpdatedEvent {
+  return {
+    agentId: wire.agent_id,
+    playerId: wire.player_id,
+    memoriesExtracted: wire.memories_extracted,
+    factsExtracted: wire.facts_extracted,
+    conversationId: wire.conversation_id,
+    newMemories: wire.new_memories ?? [],
+    timestamp: wire.timestamp,
+  };
+}
+
 // ─── Event Map ───────────────────────────────────────────────────
 
 export type EstuaryEventMap = {
@@ -253,6 +299,7 @@ export type EstuaryEventMap = {
   livekitDisconnected: () => void;
   audioPlaybackStarted: (messageId: string) => void;
   audioPlaybackComplete: (messageId: string) => void;
+  memoryUpdated: (event: MemoryUpdatedEvent) => void;
 }
 
 // ─── Voice Manager Interface ─────────────────────────────────────

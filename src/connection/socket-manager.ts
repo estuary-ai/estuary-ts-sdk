@@ -14,6 +14,7 @@ import {
   WireQuotaExceededData,
   WireCameraCaptureRequest,
   WireLiveKitTokenResponse,
+  WireMemoryUpdated,
   SessionInfo,
   LiveKitTokenResponse,
   toSessionInfo,
@@ -24,6 +25,7 @@ import {
   toQuotaExceededData,
   toCameraCaptureRequest,
   toLiveKitTokenResponse,
+  toMemoryUpdatedEvent,
 } from '../types';
 
 export class SocketManager extends TypedEventEmitter<EstuaryEventMap> {
@@ -206,6 +208,10 @@ export class SocketManager extends TypedEventEmitter<EstuaryEventMap> {
 
     this.socket.on('livekit_ready', (data: { room: string }) => {
       this.emit('livekitConnected', data.room);
+    });
+
+    this.socket.on('memory_updated', (data: WireMemoryUpdated) => {
+      this.emit('memoryUpdated', toMemoryUpdatedEvent(data));
     });
   }
 

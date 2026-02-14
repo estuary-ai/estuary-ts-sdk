@@ -83,6 +83,39 @@ describe('EstuaryClient', () => {
     expect(connectedFn).toHaveBeenCalled();
   });
 
+  it('should forward memoryUpdated event from socket manager', async () => {
+    const handlers: Record<string, (...args: unknown[]) => void> = {};
+    mockSocket.on.mockImplementation((event: string, handler: (...args: unknown[]) => void) => {
+      handlers[event] = handler;
+    });
+
+    const memoryFn = vi.fn();
+    client.on('memoryUpdated', memoryFn);
+
+    const connectPromise = client.connect();
+    handlers['connect']();
+    handlers['session_info']({
+      session_id: 'sess-1',
+      conversation_id: 'conv-1',
+      character_id: 'char-123',
+      player_id: 'player-456',
+    });
+    await connectPromise;
+
+    handlers['memory_updated']({
+      agent_id: 'agent-A',
+      player_id: 'player-1',
+      memories_extracted: 2,
+      facts_extracted: 1,
+      conversation_id: 'conv-1',
+      new_memories: [],
+      timestamp: '2026-02-14T00:00:00Z',
+    });
+
+    expect(memoryFn).toHaveBeenCalledOnce();
+    expect(memoryFn.mock.calls[0][0].agentId).toBe('agent-A');
+  });
+
   it('should disconnect cleanly', async () => {
     const handlers: Record<string, (...args: unknown[]) => void> = {};
     mockSocket.on.mockImplementation((event: string, handler: (...args: unknown[]) => void) => {
