@@ -90,6 +90,7 @@ export class SocketManager extends TypedEventEmitter<EstuaryEventMap> {
           character_id: this.config.characterId,
           player_id: this.config.playerId,
           audio_sample_rate: this.config.audioSampleRate ?? 16000,
+          realtime_memory: this.config.realtimeMemory ?? false,
         });
       };
 

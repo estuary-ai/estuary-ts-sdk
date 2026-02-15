@@ -21,6 +21,8 @@ export interface EstuaryConfig {
   debug?: boolean;
   /** Voice transport: 'websocket' | 'livekit' | 'auto' (default: 'auto') */
   voiceTransport?: VoiceTransport;
+  /** Enable real-time memory extraction after each response (default: false) */
+  realtimeMemory?: boolean;
 }
 
 export type VoiceTransport = 'websocket' | 'livekit' | 'auto';
