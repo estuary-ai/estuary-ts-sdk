@@ -37,7 +37,12 @@ export class MemoryClient {
   }
 
   async getGraph(options?: MemoryGraphOptions): Promise<MemoryGraphResponse> {
-    return this.rest.get<MemoryGraphResponse>(`${this.basePath}/graph`, options as Record<string, string | number | boolean | undefined>);
+    const params: Record<string, string | number | boolean | undefined> = {};
+    if (options) {
+      if (options.includeEntities !== undefined) params.include_entities = options.includeEntities;
+      if (options.includeCharacterMemories !== undefined) params.include_character_memories = options.includeCharacterMemories;
+    }
+    return this.rest.get<MemoryGraphResponse>(`${this.basePath}/graph`, params);
   }
 
   async search(query: string, limit?: number): Promise<MemorySearchResponse> {
