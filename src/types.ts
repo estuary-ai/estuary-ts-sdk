@@ -55,6 +55,7 @@ export interface WireBotResponse {
   message_id: string;
   chunk_index: number;
   is_interjection: boolean;
+  token_stream?: boolean;
 }
 
 /** @internal */
@@ -127,6 +128,7 @@ export interface BotResponse {
   messageId: string;
   chunkIndex: number;
   isInterjection: boolean;
+  tokenStream?: boolean;
 }
 
 export interface BotVoice {
@@ -209,6 +211,7 @@ export function toBotResponse(wire: WireBotResponse): BotResponse {
     messageId: wire.message_id,
     chunkIndex: wire.chunk_index,
     isInterjection: wire.is_interjection,
+    tokenStream: wire.token_stream,
   };
 }
 
