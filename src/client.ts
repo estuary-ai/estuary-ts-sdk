@@ -125,7 +125,7 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
     const transport = this.config.voiceTransport ?? 'auto';
     const sampleRate = this.config.audioSampleRate ?? DEFAULT_SAMPLE_RATE;
 
-    this.voiceManager = createVoiceManager(transport, this.socketManager, sampleRate, this.logger);
+    this.voiceManager = await createVoiceManager(transport, this.socketManager, sampleRate, this.logger);
     if (!this.voiceManager) {
       throw new EstuaryError(ErrorCode.VOICE_NOT_SUPPORTED, 'No voice transport available');
     }

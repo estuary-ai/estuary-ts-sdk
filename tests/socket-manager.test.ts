@@ -52,6 +52,7 @@ describe('SocketManager', () => {
       character_id: 'char-123',
       player_id: 'player-456',
       audio_sample_rate: 16000,
+      realtime_memory: false,
     });
 
     handlers['session_info']({

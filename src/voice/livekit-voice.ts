@@ -32,7 +32,8 @@ export class LiveKitVoiceManager implements VoiceManager {
     let RoomEvent: any;
     let Track: any;
     try {
-      const lk = await import('livekit-client');
+      const specifier = ['livekit', 'client'].join('-');
+      const lk = await import(/* @vite-ignore */ specifier);
       Room = lk.Room;
       RoomEvent = lk.RoomEvent;
       Track = lk.Track;

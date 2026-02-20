@@ -59,7 +59,7 @@ describe('MemoryClient', () => {
     await client.getGraph({ includeEntities: true });
     expect(rest.get).toHaveBeenCalledWith(
       '/api/agents/agent-123/players/player-456/memories/graph',
-      expect.objectContaining({ includeEntities: true }),
+      expect.objectContaining({ include_entities: true }),
     );
   });
 
