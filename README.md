@@ -83,6 +83,29 @@ const graph = await client.memory.getGraph({ includeEntities: true });
 const results = await client.memory.search('favorite food');
 ```
 
+### Real-Time Memory Extraction
+
+Enable `realtimeMemory` to receive live notifications when the server extracts memories from conversation:
+
+```typescript
+const client = new EstuaryClient({
+  serverUrl: 'https://api.estuary-ai.com',
+  apiKey: 'est_...',
+  characterId: '...',
+  playerId: '...',
+  realtimeMemory: true,
+});
+
+client.on('memoryUpdated', (event) => {
+  console.log(`Extracted ${event.memoriesExtracted} memories, ${event.factsExtracted} facts`);
+  for (const mem of event.newMemories) {
+    console.log(`  [${mem.memoryType}] ${mem.content} (confidence: ${mem.confidence})`);
+  }
+});
+
+await client.connect();
+```
+
 ## Events
 
 ```typescript
@@ -92,6 +115,7 @@ client.on('botResponse', (response) => { /* streaming text */ });
 client.on('botVoice', (voice) => { /* audio chunk */ });
 client.on('sttResponse', (stt) => { /* speech-to-text */ });
 client.on('interrupt', (data) => { /* response interrupted */ });
+client.on('memoryUpdated', (event) => { /* real-time memory extraction */ });
 client.on('error', (error) => { /* EstuaryError */ });
 client.on('quotaExceeded', (data) => { /* rate limited */ });
 ```
@@ -110,6 +134,7 @@ interface EstuaryConfig {
   reconnectDelayMs?: number;   // Default: 2000
   debug?: boolean;             // Default: false
   voiceTransport?: 'websocket' | 'livekit' | 'auto'; // Default: 'auto'
+  realtimeMemory?: boolean;    // Enable real-time memory extraction events. Default: false
 }
 ```
 
