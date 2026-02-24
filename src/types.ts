@@ -23,6 +23,10 @@ export interface EstuaryConfig {
   voiceTransport?: VoiceTransport;
   /** Enable real-time memory extraction after each response (default: false) */
   realtimeMemory?: boolean;
+  /** Suppress mic during TTS playback (software AEC fallback, disables barge-in). Default: false */
+  suppressMicDuringPlayback?: boolean;
+  /** Proactively interrupt bot audio when user starts speaking (default: true) */
+  autoInterruptOnSpeech?: boolean;
 }
 
 export type VoiceTransport = 'websocket' | 'livekit' | 'auto';
@@ -283,6 +287,17 @@ export function toMemoryUpdatedEvent(wire: WireMemoryUpdated): MemoryUpdatedEven
   };
 }
 
+// ─── Character Actions ───────────────────────────────────────────
+
+export interface CharacterAction {
+  /** Action name (e.g., "follow_user", "sit", "look_at") */
+  name: string;
+  /** Action parameters as key-value pairs */
+  params: Record<string, string>;
+  /** Message ID of the bot response that contained this action */
+  messageId: string;
+}
+
 // ─── Event Map ───────────────────────────────────────────────────
 
 export type EstuaryEventMap = {
@@ -298,6 +313,7 @@ export type EstuaryEventMap = {
   authError: (error: string) => void;
   quotaExceeded: (data: QuotaExceededData) => void;
   cameraCaptureRequest: (request: CameraCaptureRequest) => void;
+  characterAction: (action: CharacterAction) => void;
   voiceStarted: () => void;
   voiceStopped: () => void;
   livekitConnected: (room: string) => void;
@@ -313,6 +329,8 @@ export interface VoiceManager {
   start(): Promise<void>;
   stop(): Promise<void>;
   toggleMute(): void;
+  /** Suppress audio sending (software AEC). No-op if not supported. */
+  setSuppressed?(suppressed: boolean): void;
   readonly isMuted: boolean;
   readonly isActive: boolean;
   dispose(): void;

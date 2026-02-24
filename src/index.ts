@@ -16,6 +16,7 @@ export type {
   QuotaExceededData,
   LiveKitTokenResponse,
   CameraCaptureRequest,
+  CharacterAction,
   EstuaryEventMap,
   VoiceManager,
   MemoryListOptions,
@@ -33,6 +34,10 @@ export type {
 } from './types';
 
 export { ConnectionState } from './types';
+
+// Action parsing utilities
+export { parseActions } from './utils/action-parser';
+export type { ParsedAction } from './utils/action-parser';
 
 // Memory client (so users can type `client.memory` properly)
 export type { MemoryClient } from './rest/memory-client';
