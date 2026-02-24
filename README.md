@@ -74,6 +74,50 @@ await client.startVoice();
 client.toggleMute();
 ```
 
+### Interrupts
+
+Interrupt the bot's current response (stops audio playback and generation):
+
+```typescript
+client.interrupt();                // interrupt current response
+client.interrupt('msg_abc123');    // interrupt a specific message
+```
+
+### Vision / Camera
+
+Send images for vision processing. The server may also request captures via the `cameraCaptureRequest` event.
+
+```typescript
+// Send a camera image proactively
+client.sendCameraImage(base64Image, 'image/jpeg');
+
+// Respond to a server-initiated capture request
+client.on('cameraCaptureRequest', (request) => {
+  const image = captureFrame(); // your capture logic
+  client.sendCameraImage(image, 'image/jpeg', request.requestId, request.text);
+});
+```
+
+### Character Actions
+
+Bot responses can include inline action tags (e.g., `<action name="wave" target="user"/>`). The SDK automatically parses these, strips them from `botResponse.text`, and emits `characterAction` events:
+
+```typescript
+client.on('characterAction', (action) => {
+  console.log(action.name);      // e.g., "wave"
+  console.log(action.params);    // e.g., { target: "user" }
+  console.log(action.messageId); // originating message
+});
+```
+
+For non-streaming contexts, use the `parseActions` utility:
+
+```typescript
+import { parseActions } from '@estuary-ai/sdk';
+
+const { actions, cleanText } = parseActions(rawBotText);
+```
+
 ### Memory & Knowledge Graph
 
 ```typescript
@@ -81,6 +125,9 @@ const memories = await client.memory.getMemories({ status: 'active', limit: 50 }
 const facts = await client.memory.getCoreFacts();
 const graph = await client.memory.getGraph({ includeEntities: true });
 const results = await client.memory.search('favorite food');
+const timeline = await client.memory.getTimeline({ groupBy: 'week' });
+const stats = await client.memory.getStats();
+await client.memory.deleteAll(true); // pass true to confirm
 ```
 
 ### Real-Time Memory Extraction
@@ -109,15 +156,67 @@ await client.connect();
 ## Events
 
 ```typescript
+// Connection
 client.on('connected', (session) => { /* authenticated */ });
 client.on('disconnected', (reason) => { /* lost connection */ });
-client.on('botResponse', (response) => { /* streaming text */ });
+client.on('reconnecting', (attempt) => { /* reconnect attempt number */ });
+client.on('connectionStateChanged', (state) => { /* ConnectionState enum */ });
+client.on('authError', (error) => { /* authentication failed */ });
+
+// Conversation
+client.on('botResponse', (response) => { /* streaming text (actions auto-stripped) */ });
 client.on('botVoice', (voice) => { /* audio chunk */ });
-client.on('sttResponse', (stt) => { /* speech-to-text */ });
+client.on('sttResponse', (stt) => { /* speech-to-text transcript */ });
 client.on('interrupt', (data) => { /* response interrupted */ });
+client.on('characterAction', (action) => { /* parsed action from bot response */ });
+client.on('cameraCaptureRequest', (request) => { /* server requests a camera image */ });
+
+// Voice
+client.on('voiceStarted', () => { /* voice session began */ });
+client.on('voiceStopped', () => { /* voice session ended */ });
+client.on('livekitConnected', (room) => { /* joined LiveKit room */ });
+client.on('livekitDisconnected', () => { /* left LiveKit room */ });
+
+// Audio playback
+client.on('audioPlaybackStarted', (messageId) => { /* bot audio started playing */ });
+client.on('audioPlaybackComplete', (messageId) => { /* bot audio finished playing */ });
+
+// Memory
 client.on('memoryUpdated', (event) => { /* real-time memory extraction */ });
+
+// Errors & limits
 client.on('error', (error) => { /* EstuaryError */ });
 client.on('quotaExceeded', (data) => { /* rate limited */ });
+```
+
+## Error Handling
+
+Errors are instances of `EstuaryError` with a typed `code` field:
+
+```typescript
+import { EstuaryError, ErrorCode } from '@estuary-ai/sdk';
+
+client.on('error', (error) => {
+  if (error instanceof EstuaryError) {
+    switch (error.code) {
+      case ErrorCode.NOT_CONNECTED:
+      case ErrorCode.CONNECTION_FAILED:
+      case ErrorCode.CONNECTION_TIMEOUT:
+        // connection issues
+        break;
+      case ErrorCode.AUTH_FAILED:
+        // bad API key or character ID
+        break;
+      case ErrorCode.MICROPHONE_DENIED:
+        // user denied mic permission
+        break;
+    }
+  }
+});
+
+client.on('authError', (message) => {
+  console.error('Authentication failed:', message);
+});
 ```
 
 ## Configuration
@@ -135,7 +234,44 @@ interface EstuaryConfig {
   debug?: boolean;             // Default: false
   voiceTransport?: 'websocket' | 'livekit' | 'auto'; // Default: 'auto'
   realtimeMemory?: boolean;    // Enable real-time memory extraction events. Default: false
+  suppressMicDuringPlayback?: boolean; // Mute mic while bot audio plays (software AEC). Default: false
 }
+```
+
+## Exports
+
+Key exports for TypeScript users:
+
+```typescript
+// Client
+import { EstuaryClient } from '@estuary-ai/sdk';
+
+// Errors
+import { EstuaryError, ErrorCode } from '@estuary-ai/sdk';
+
+// Enums
+import { ConnectionState } from '@estuary-ai/sdk';
+
+// Utilities
+import { parseActions } from '@estuary-ai/sdk';
+
+// Types (import type)
+import type {
+  EstuaryConfig,
+  SessionInfo,
+  BotResponse,
+  BotVoice,
+  SttResponse,
+  InterruptData,
+  CameraCaptureRequest,
+  CharacterAction,
+  QuotaExceededData,
+  MemoryData,
+  MemoryUpdatedEvent,
+  EstuaryEventMap,
+  ParsedAction,
+  MemoryClient,
+} from '@estuary-ai/sdk';
 ```
 
 ## Requirements
