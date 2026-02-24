@@ -70,12 +70,27 @@ export class AudioPlayer {
       try {
         this.currentSource.onended = null;
         this.currentSource.stop();
+        this.currentSource.disconnect();
       } catch {
         // Already stopped
       }
       this.currentSource = null;
     }
-    if (this.audioElement) this.audioElement.muted = true;
+    // Push silence through mediaStreamDest to flush the <audio> element's
+    // internal pipeline buffer. Without this, mobile browsers replay the last
+    // buffered frames. We can't touch the <audio> element directly (pause or
+    // srcObject reassignment revokes the autoplay privilege on mobile).
+    if (this.audioContext && this.mediaStreamDest) {
+      const silence = this.audioContext.createBuffer(
+        1,
+        this.sampleRate * 0.25,
+        this.sampleRate,
+      );
+      const src = this.audioContext.createBufferSource();
+      src.buffer = silence;
+      src.connect(this.mediaStreamDest);
+      src.start();
+    }
     this.isPlaying = false;
     this.currentMessageId = null;
   }
@@ -163,7 +178,6 @@ export class AudioPlayer {
     };
 
     if (this.audioElement) {
-      this.audioElement.muted = false;
       this.audioElement.play().catch(() => {});
     }
     ctx.resume().catch(() => {});

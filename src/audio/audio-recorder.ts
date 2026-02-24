@@ -7,6 +7,7 @@ export class AudioRecorder {
   private mediaStream: MediaStream | null = null;
   private scriptProcessor: ScriptProcessorNode | null = null;
   private sourceNode: MediaStreamAudioSourceNode | null = null;
+  private zeroGainNode: GainNode | null = null;
   private _isRecording = false;
 
   constructor(sampleRate: number, onAudioData: (base64Pcm: string) => void) {
@@ -66,7 +67,10 @@ export class AudioRecorder {
     };
 
     this.sourceNode.connect(this.scriptProcessor);
-    this.scriptProcessor.connect(this.audioContext.destination);
+    this.zeroGainNode = this.audioContext.createGain();
+    this.zeroGainNode.gain.value = 0;
+    this.scriptProcessor.connect(this.zeroGainNode);
+    this.zeroGainNode.connect(this.audioContext.destination);
     this._isRecording = true;
   }
 
@@ -77,6 +81,10 @@ export class AudioRecorder {
       this.scriptProcessor.onaudioprocess = null;
       this.scriptProcessor.disconnect();
       this.scriptProcessor = null;
+    }
+    if (this.zeroGainNode) {
+      this.zeroGainNode.disconnect();
+      this.zeroGainNode = null;
     }
     if (this.sourceNode) {
       this.sourceNode.disconnect();

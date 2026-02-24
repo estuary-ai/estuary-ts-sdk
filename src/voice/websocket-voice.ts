@@ -11,6 +11,7 @@ export class WebSocketVoiceManager implements VoiceManager {
   private mediaStream: MediaStream | null = null;
   private scriptProcessor: ScriptProcessorNode | null = null;
   private sourceNode: MediaStreamAudioSourceNode | null = null;
+  private zeroGainNode: GainNode | null = null;
   private _isMuted = false;
   private _isSuppressed = false;
   private _isActive = false;
@@ -90,7 +91,10 @@ export class WebSocketVoiceManager implements VoiceManager {
     };
 
     this.sourceNode.connect(this.scriptProcessor);
-    this.scriptProcessor.connect(this.audioContext.destination);
+    this.zeroGainNode = this.audioContext.createGain();
+    this.zeroGainNode.gain.value = 0;
+    this.scriptProcessor.connect(this.zeroGainNode);
+    this.zeroGainNode.connect(this.audioContext.destination);
 
     this._isActive = true;
     this.socketManager.emitEvent('start_voice');
@@ -139,6 +143,10 @@ export class WebSocketVoiceManager implements VoiceManager {
       this.scriptProcessor.onaudioprocess = null;
       this.scriptProcessor.disconnect();
       this.scriptProcessor = null;
+    }
+    if (this.zeroGainNode) {
+      this.zeroGainNode.disconnect();
+      this.zeroGainNode = null;
     }
     if (this.sourceNode) {
       this.sourceNode.disconnect();

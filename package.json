@@ -1,6 +1,6 @@
 {
   "name": "@estuary-ai/sdk",
-  "version": "0.1.12",
+  "version": "0.1.19",
   "description": "TypeScript SDK for the Estuary real-time AI conversation platform",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",

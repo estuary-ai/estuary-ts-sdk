@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SDK Voice Test (Local Build)</title>
+<style>
+  body { font-family: monospace; background: #0a0a0f; color: #e0e0e0; padding: 16px; }
+  h1 { font-size: 16px; color: #8b9cf7; }
+  label { display: block; font-size: 12px; color: #888; margin-top: 8px; }
+  input { width: 100%; max-width: 400px; background: #1a1a2a; border: 1px solid #2a2a3a; border-radius: 4px; color: #e0e0e0; padding: 6px 8px; font-size: 12px; font-family: monospace; }
+  button { padding: 6px 14px; border-radius: 5px; border: 1px solid #3a3a5a; background: #1e1e30; color: #c0c0d0; font-size: 12px; cursor: pointer; margin: 4px 4px 4px 0; }
+  button:hover:not(:disabled) { background: #2a2a40; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .primary { background: #2a3a6a; border-color: #4a5a9a; color: #a0b0f0; }
+  .success { background: #1a3a2a; border-color: #2a5a3a; color: #80f0a0; }
+  .danger { background: #4a1a1a; border-color: #6a2a2a; color: #f08080; }
+  #status { font-weight: bold; margin: 12px 0; }
+  #log { background: #12121a; border: 1px solid #2a2a3a; border-radius: 6px; padding: 10px; height: 400px; overflow-y: auto; font-size: 11px; line-height: 1.6; white-space: pre-wrap; word-break: break-all; }
+  .ts { color: #555; } .ev { font-weight: 600; } .green { color: #4ade80; } .red { color: #f87171; } .yellow { color: #fbbf24; } .blue { color: #60a5fa; } .purple { color: #a78bfa; }
+</style>
+</head>
+<body>
+
+<h1>Estuary SDK Voice Test (Local Build)</h1>
+
+<label>Server URL</label>
+<input id="serverUrl" value="https://api.estuary-ai.com">
+<label>API Key</label>
+<input id="apiKey" value="">
+<label>Character ID</label>
+<input id="characterId" value="">
+<label>Player ID</label>
+<input id="playerId" value="voice-test-1">
+
+<div style="margin-top: 12px;">
+  <button class="primary" id="btnConnect">Connect</button>
+  <button class="danger" id="btnDisconnect" disabled>Disconnect</button>
+  <button class="success" id="btnStartVoice" disabled>Start Voice</button>
+  <button id="btnStopVoice" disabled>Stop Voice</button>
+</div>
+
+<div id="status">Disconnected</div>
+<div id="log"></div>
+
+<script type="module">
+  import { EstuaryClient } from './dist/index.mjs';
+
+  const $ = (id) => document.getElementById(id);
+  const logEl = $('log');
+  const statusEl = $('status');
+
+  let client = null;
+
+  function log(cat, msg) {
+    const ts = new Date().toISOString().slice(11, 23);
+    const colors = { connect: 'green', disconnect: 'red', stt: 'yellow', bot: 'blue', voice: 'purple', error: 'red' };
+    const cls = colors[cat] || '';
+    logEl.innerHTML += `<span class="ts">${ts}</span> <span class="ev ${cls}">[${cat}]</span> ${escapeHtml(typeof msg === 'string' ? msg : JSON.stringify(msg))}\n`;
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  function escapeHtml(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+  $('btnConnect').addEventListener('click', async () => {
+    try {
+      $('btnConnect').disabled = true;
+      statusEl.textContent = 'Connecting...';
+      client = new EstuaryClient({
+        serverUrl: $('serverUrl').value.trim(),
+        apiKey: $('apiKey').value.trim(),
+        characterId: $('characterId').value.trim(),
+        playerId: $('playerId').value.trim(),
+        voiceTransport: 'websocket',
+        debug: true,
+      });
+
+      client.on('connected', (s) => { log('connect', `Session: ${s.sessionId}`); statusEl.textContent = 'Connected'; $('btnDisconnect').disabled = false; $('btnStartVoice').disabled = false; });
+      client.on('disconnected', (r) => { log('disconnect', r); statusEl.textContent = 'Disconnected'; $('btnConnect').disabled = false; $('btnDisconnect').disabled = true; $('btnStartVoice').disabled = true; $('btnStopVoice').disabled = true; });
+      client.on('sttResponse', (stt) => { if (stt.isFinal) log('stt', `"${stt.text}"`); });
+      client.on('botResponse', (r) => { if (r.isFinal) log('bot', `"${r.text}"`); });
+      client.on('voiceStarted', () => { log('voice', 'Started'); $('btnStopVoice').disabled = false; $('btnStartVoice').disabled = true; });
+      client.on('voiceStopped', () => { log('voice', 'Stopped'); $('btnStopVoice').disabled = true; $('btnStartVoice').disabled = !client?.isConnected; });
+      client.on('error', (e) => log('error', e.message || String(e)));
+
+      await client.connect();
+    } catch (e) {
+      log('error', e.message);
+      statusEl.textContent = 'Error';
+      $('btnConnect').disabled = false;
+    }
+  });
+
+  $('btnDisconnect').addEventListener('click', () => { client?.disconnect(); client = null; });
+  $('btnStartVoice').addEventListener('click', () => client?.startVoice().catch(e => log('error', e.message)));
+  $('btnStopVoice').addEventListener('click', () => client?.stopVoice());
+</script>
+</body>
+</html>
