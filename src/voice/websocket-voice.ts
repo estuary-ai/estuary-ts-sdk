@@ -12,6 +12,7 @@ export class WebSocketVoiceManager implements VoiceManager {
   private scriptProcessor: ScriptProcessorNode | null = null;
   private sourceNode: MediaStreamAudioSourceNode | null = null;
   private _isMuted = false;
+  private _isSuppressed = false;
   private _isActive = false;
 
   constructor(socketManager: SocketManager, sampleRate: number, logger: Logger) {
@@ -40,7 +41,13 @@ export class WebSocketVoiceManager implements VoiceManager {
     let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({
-        audio: { sampleRate: this.sampleRate, channelCount: 1 },
+        audio: {
+          sampleRate: this.sampleRate,
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
       });
     } catch (err) {
       throw new EstuaryError(
@@ -61,7 +68,7 @@ export class WebSocketVoiceManager implements VoiceManager {
     const targetRate = this.sampleRate;
 
     this.scriptProcessor.onaudioprocess = (event: AudioProcessingEvent) => {
-      if (this._isMuted) return;
+      if (this._isMuted || this._isSuppressed) return;
 
       const inputData = event.inputBuffer.getChannelData(0);
       let pcmFloat: Float32Array;
@@ -102,6 +109,7 @@ export class WebSocketVoiceManager implements VoiceManager {
     this.cleanup();
     this._isActive = false;
     this._isMuted = false;
+    this._isSuppressed = false;
     this.logger.debug('WebSocket voice stopped');
   }
 
@@ -114,10 +122,16 @@ export class WebSocketVoiceManager implements VoiceManager {
     this.logger.debug('Mute toggled:', this._isMuted);
   }
 
+  setSuppressed(suppressed: boolean): void {
+    this._isSuppressed = suppressed;
+    this.logger.debug('Audio suppression:', suppressed ? 'on' : 'off');
+  }
+
   dispose(): void {
     this.cleanup();
     this._isActive = false;
     this._isMuted = false;
+    this._isSuppressed = false;
   }
 
   private cleanup(): void {

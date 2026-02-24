@@ -28,7 +28,13 @@ export class AudioRecorder {
     let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({
-        audio: { sampleRate: this.sampleRate, channelCount: 1 },
+        audio: {
+          sampleRate: this.sampleRate,
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
       });
     } catch (err) {
       throw new EstuaryError(ErrorCode.MICROPHONE_DENIED, 'Microphone access denied', err);
