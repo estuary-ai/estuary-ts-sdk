@@ -50,7 +50,7 @@ export class StreamingActionParser {
     const newActions = allActions.slice(this.emittedCount);
     this.emittedCount = allActions.length;
 
-    const cleanText = accumulatedText.replace(ACTION_TAG_RE, '').replace(/\s{2,}/g, ' ').trim();
+    const cleanText = accumulatedText.replace(ACTION_TAG_RE, '').replace(/\s{2,}/g, ' ').trimEnd();
 
     return { actions: newActions, cleanText };
   }
