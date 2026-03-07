@@ -274,6 +274,40 @@ import type {
 } from '@estuary-ai/sdk';
 ```
 
+## React / Next.js
+
+The SDK uses browser APIs, so it must be used in client components. In Next.js App Router:
+
+```tsx
+"use client";
+
+import { useEffect, useRef } from 'react';
+import { EstuaryClient } from '@estuary-ai/sdk';
+
+export default function Chat() {
+  const clientRef = useRef<EstuaryClient | null>(null);
+
+  useEffect(() => {
+    const client = new EstuaryClient({
+      serverUrl: 'https://api.estuary-ai.com',
+      apiKey: 'est_...',
+      characterId: '...',
+      playerId: 'user-123',
+    });
+    clientRef.current = client;
+    client.connect();
+
+    return () => {
+      client.disconnect();
+    };
+  }, []);
+
+  return <div>...</div>;
+}
+```
+
+If using `next/dynamic` with `ssr: false`, the importing page must also be a client component in Next.js 16+.
+
 ## Requirements
 
 - Node.js 18+ or modern browser

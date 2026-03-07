@@ -92,9 +92,10 @@ export class LiveKitVoiceManager implements VoiceManager {
       this.logger.debug('Connected to LiveKit room:', tokenData.room);
     } catch (err) {
       this.room = null;
+      const reason = err instanceof Error ? `: ${err.message}` : '';
       throw new EstuaryError(
         ErrorCode.CONNECTION_FAILED,
-        'Failed to connect to LiveKit room',
+        `Failed to connect to LiveKit room${reason}`,
         err,
       );
     }
@@ -106,9 +107,10 @@ export class LiveKitVoiceManager implements VoiceManager {
     } catch (err) {
       this.room.disconnect();
       this.room = null;
+      const reason = err instanceof Error ? `: ${err.message}` : '';
       throw new EstuaryError(
         ErrorCode.MICROPHONE_DENIED,
-        'Failed to enable microphone',
+        `Failed to enable microphone${reason}`,
         err,
       );
     }

@@ -45,7 +45,9 @@
     "type": "git",
     "url": "https://github.com/estuary-ai/estuary-ts-sdk"
   },
-  "dependencies": {},
+  "dependencies": {
+    "socket.io-client": "^4.8.0"
+  },
   "peerDependencies": {
     "livekit-client": "^2.0.0"
   },
@@ -61,8 +63,7 @@
     "eslint": "^9.0.0",
     "prettier": "^3.4.0",
     "@types/node": "^22.0.0",
-    "livekit-client": "^2.0.0",
-    "socket.io-client": "^4.8.0"
+    "livekit-client": "^2.0.0"
   },
   "engines": {
     "node": ">=18.0.0"

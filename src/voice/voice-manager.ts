@@ -4,6 +4,15 @@ import type { Logger } from '../utils/logger';
 
 export type { VoiceManager };
 
+async function isLiveKitAvailable(): Promise<boolean> {
+  try {
+    await import('livekit-client');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function createVoiceManager(
   transport: VoiceTransport,
   socketManager: SocketManager,
@@ -16,25 +25,23 @@ export async function createVoiceManager(
   }
 
   if (transport === 'livekit') {
-    try {
+    if (await isLiveKitAvailable()) {
       const { LiveKitVoiceManager } = await import('./livekit-voice');
       return new LiveKitVoiceManager(socketManager, logger);
-    } catch {
-      logger.warn('livekit-client not installed, falling back to WebSocket voice');
-      const { WebSocketVoiceManager } = await import('./websocket-voice');
-      return new WebSocketVoiceManager(socketManager, sampleRate, logger);
     }
+    logger.warn('livekit-client not installed, falling back to WebSocket voice');
+    const { WebSocketVoiceManager } = await import('./websocket-voice');
+    return new WebSocketVoiceManager(socketManager, sampleRate, logger);
   }
 
   // auto: prefer LiveKit if available, else WebSocket
   if (transport === 'auto') {
-    try {
+    if (await isLiveKitAvailable()) {
       const { LiveKitVoiceManager } = await import('./livekit-voice');
       return new LiveKitVoiceManager(socketManager, logger);
-    } catch {
-      const { WebSocketVoiceManager } = await import('./websocket-voice');
-      return new WebSocketVoiceManager(socketManager, sampleRate, logger);
     }
+    const { WebSocketVoiceManager } = await import('./websocket-voice');
+    return new WebSocketVoiceManager(socketManager, sampleRate, logger);
   }
 
   return null;
