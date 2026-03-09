@@ -46,7 +46,7 @@ export class MemoryClient {
   }
 
   async search(query: string, limit?: number): Promise<MemorySearchResponse> {
-    return this.rest.get<MemorySearchResponse>(`${this.basePath}/search`, { query, limit });
+    return this.rest.get<MemorySearchResponse>(`${this.basePath}/search`, { q: query, limit });
   }
 
   async deleteAll(confirm: boolean): Promise<{ message: string; deletedCount: number }> {
