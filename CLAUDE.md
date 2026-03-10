@@ -94,3 +94,9 @@ npm run format       # Prettier
 - LiveKit is an optional peer dependency — graceful fallback to WebSocket voice
 - Audio APIs (AudioContext, getUserMedia) require browser environment; memory REST works in Node.js
 - Wire format uses snake_case; public API uses camelCase with converter functions in types.ts
+
+## Documentation Maintenance
+
+- When modifying SDK features, installation steps, or dependencies: update both `README.md` and `estuary-docs/docs/typescript-sdk/` docs to keep them in sync
+- LiveKit is an **optional** peer dependency — always document it as optional (unlike Unity SDK where it's required)
+- The npm package page is at https://www.npmjs.com/package/@estuary-ai/sdk — keep `package.json` metadata (description, keywords, repository) accurate as they surface on npm

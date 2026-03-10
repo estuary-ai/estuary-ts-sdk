@@ -1,5 +1,7 @@
 # @estuary-ai/sdk
 
+[![npm](https://img.shields.io/npm/v/@estuary-ai/sdk)](https://www.npmjs.com/package/@estuary-ai/sdk)
+
 TypeScript SDK for the [Estuary](https://www.estuary-ai.com) real-time AI conversation platform. Build applications with persistent AI characters that remember, hear, and see.
 
 ## Installation
