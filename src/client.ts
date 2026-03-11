@@ -73,13 +73,13 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
   }
 
   /** Disconnect from the server */
-  disconnect(): void {
+  async disconnect(): Promise<void> {
     this.logger.info('Disconnecting...');
     if (this._autoInterruptGraceTimer) {
       clearTimeout(this._autoInterruptGraceTimer);
       this._autoInterruptGraceTimer = null;
     }
-    this.stopVoice();
+    await this.stopVoice();
     this.audioPlayer?.dispose();
     this.audioPlayer = null;
     this.socketManager.disconnect();
@@ -180,9 +180,9 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
   }
 
   /** Stop voice input */
-  stopVoice(): void {
+  async stopVoice(): Promise<void> {
     if (this.voiceManager?.isActive) {
-      this.voiceManager.stop();
+      await this.voiceManager.stop();
       this.voiceManager.dispose();
       this.voiceManager = null;
       this.emit('voiceStopped');

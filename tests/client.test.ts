@@ -132,7 +132,7 @@ describe('EstuaryClient', () => {
     });
     await connectPromise;
 
-    client.disconnect();
+    await client.disconnect();
     expect(client.session).toBeNull();
     expect(client.connectionState).toBe(ConnectionState.Disconnected);
   });

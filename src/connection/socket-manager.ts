@@ -260,7 +260,7 @@ export class SocketManager extends TypedEventEmitter<EstuaryEventMap> {
         this.logger.error('Reconnect failed:', err.message);
         // Will trigger another attempt via handleDisconnect
       });
-    }, delay * this.reconnectAttempt); // Exponential-ish backoff
+    }, delay * this.reconnectAttempt); // Linear backoff: delay * attempt
   }
 
   private clearReconnectTimer(): void {
