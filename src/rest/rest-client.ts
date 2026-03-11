@@ -1,12 +1,16 @@
 import { EstuaryError, ErrorCode } from '../errors';
 
+const DEFAULT_TIMEOUT_MS = 10_000;
+
 export class RestClient {
   private baseUrl: string;
   private apiKey: string;
+  private timeoutMs: number;
 
-  constructor(baseUrl: string, apiKey: string) {
+  constructor(baseUrl: string, apiKey: string, timeoutMs: number = DEFAULT_TIMEOUT_MS) {
     this.baseUrl = baseUrl.replace(/\/+$/, '');
     this.apiKey = apiKey;
+    this.timeoutMs = timeoutMs;
   }
 
   async get<T>(path: string, params?: Record<string, string | number | boolean | undefined>): Promise<T> {
@@ -49,7 +53,11 @@ export class RestClient {
     const headers = new Headers(init.headers);
     headers.set('X-API-Key', this.apiKey);
 
-    const response = await fetch(url, { ...init, headers });
+    const response = await fetch(url, {
+      ...init,
+      headers,
+      signal: AbortSignal.timeout(this.timeoutMs),
+    });
 
     if (!response.ok) {
       let detail: unknown;

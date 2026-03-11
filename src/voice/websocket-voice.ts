@@ -2,6 +2,7 @@ import type { VoiceManager } from '../types';
 import type { SocketManager } from '../connection/socket-manager';
 import type { Logger } from '../utils/logger';
 import { EstuaryError, ErrorCode } from '../errors';
+import { resample, float32ToInt16, uint8ArrayToBase64 } from '../audio/audio-utils';
 
 export class WebSocketVoiceManager implements VoiceManager {
   private socketManager: SocketManager;
@@ -163,39 +164,4 @@ export class WebSocketVoiceManager implements VoiceManager {
       this.audioContext = null;
     }
   }
-}
-
-function resample(input: Float32Array, fromRate: number, toRate: number): Float32Array {
-  const ratio = fromRate / toRate;
-  const outputLength = Math.round(input.length / ratio);
-  const output = new Float32Array(outputLength);
-  for (let i = 0; i < outputLength; i++) {
-    const srcIndex = i * ratio;
-    const low = Math.floor(srcIndex);
-    const high = Math.min(low + 1, input.length - 1);
-    const frac = srcIndex - low;
-    output[i] = input[low] * (1 - frac) + input[high] * frac;
-  }
-  return output;
-}
-
-function float32ToInt16(float32: Float32Array): Int16Array {
-  const int16 = new Int16Array(float32.length);
-  for (let i = 0; i < float32.length; i++) {
-    const clamped = Math.max(-1, Math.min(1, float32[i]));
-    int16[i] = clamped < 0 ? clamped * 0x8000 : clamped * 0x7fff;
-  }
-  return int16;
-}
-
-function uint8ArrayToBase64(bytes: Uint8Array): string {
-  if (typeof btoa === 'function') {
-    let binary = '';
-    for (let i = 0; i < bytes.length; i++) {
-      binary += String.fromCharCode(bytes[i]);
-    }
-    return btoa(binary);
-  }
-  // Node.js fallback
-  return Buffer.from(bytes).toString('base64');
 }

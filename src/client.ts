@@ -73,21 +73,21 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
   }
 
   /** Disconnect from the server */
-  disconnect(): void {
+  async disconnect(): Promise<void> {
     this.logger.info('Disconnecting...');
     if (this._autoInterruptGraceTimer) {
       clearTimeout(this._autoInterruptGraceTimer);
       this._autoInterruptGraceTimer = null;
     }
-    this.stopVoice();
+    await this.stopVoice();
     this.audioPlayer?.dispose();
     this.audioPlayer = null;
     this.socketManager.disconnect();
     this._sessionInfo = null;
   }
 
-  /** Send a text message to the character */
-  sendText(text: string, textOnly = false): void {
+  /** Send a text message to the character. Defaults to textOnly=true (no TTS audio response). Pass textOnly=false to receive voice audio. */
+  sendText(text: string, textOnly = true): void {
     this.ensureConnected();
     this.socketManager.emitEvent('text', { text, textOnly });
   }
@@ -180,9 +180,9 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
   }
 
   /** Stop voice input */
-  stopVoice(): void {
+  async stopVoice(): Promise<void> {
     if (this.voiceManager?.isActive) {
-      this.voiceManager.stop();
+      await this.voiceManager.stop();
       this.voiceManager.dispose();
       this.voiceManager = null;
       this.emit('voiceStopped');

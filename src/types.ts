@@ -15,7 +15,7 @@ export interface EstuaryConfig {
   autoReconnect?: boolean;
   /** Max reconnect attempts (default: 5) */
   maxReconnectAttempts?: number;
-  /** Delay between reconnect attempts in ms (default: 2000) */
+  /** Base delay between reconnect attempts in ms (default: 2000). Actual delay is baseDelay × attemptNumber (linear backoff). */
   reconnectDelayMs?: number;
   /** Enable debug logging (default: false) */
   debug?: boolean;
@@ -174,14 +174,23 @@ export interface CameraCaptureRequest {
 
 export interface MemoryData {
   id: string;
+  userId: string;
+  agentId: string;
+  playerId: string;
   content: string;
   memoryType: string;
   confidence: number;
   status: string;
   sourceConversationId: string;
   sourceQuote?: string;
+  source?: string;
   topic?: string;
-  createdAt: string;
+  secondaryTopics?: string[];
+  lastAccessedAt?: string | null;
+  accessCount?: number;
+  extractedAt?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
 }
 
 export interface MemoryUpdatedEvent {
@@ -364,34 +373,93 @@ export interface MemorySearchOptions {
 }
 
 export interface MemoryListResponse {
-  memories: Record<string, unknown>[];
+  memories: MemoryData[];
   total: number;
   limit: number;
   offset: number;
 }
 
 export interface MemoryTimelineResponse {
-  timeline: { date: string; memories: Record<string, unknown>[] }[];
+  timeline: { date: string; memories: MemoryData[] }[];
   totalMemories: number;
   groupBy: string;
 }
 
 export interface MemoryStatsResponse {
-  [key: string]: unknown;
+  totalActive: number;
+  totalSuperseded: number;
+  totalDecayed: number;
+  byType: Record<string, number>;
+  coreFacts: number;
+}
+
+export interface MemoryGraphNode {
+  id: string;
+  type: 'user' | 'cluster' | 'memory' | 'entity';
+  label?: string;
+  /** Cluster fields */
+  level?: number;
+  memoryCount?: number;
+  typeDistribution?: Record<string, number>;
+  expanded?: boolean;
+  parentClusterId?: string | null;
+  childClusterIds?: string[];
+  labelPending?: boolean;
+  /** Memory fields */
+  memoryType?: string;
+  content?: string;
+  confidence?: number;
+  clusterId?: string;
+  sourceQuote?: string | null;
+  sourceConversationId?: string | null;
+  createdAt?: string | null;
+  accessCount?: number;
+  /** Entity fields */
+  entityType?: string | null;
+  name?: string;
+  mentionCount?: number;
+  extraData?: Record<string, string>;
+}
+
+export interface MemoryGraphEdge {
+  source: string;
+  target: string;
+  type: 'has_cluster' | 'contains' | 'mentions' | 'relationship';
+  relationshipType?: string;
+  label?: string | null;
+  confidence?: number;
 }
 
 export interface MemoryGraphResponse {
-  nodes: Record<string, unknown>[];
-  edges: Record<string, unknown>[];
-  stats: Record<string, unknown>;
+  nodes: MemoryGraphNode[];
+  edges: MemoryGraphEdge[];
+  stats: {
+    totalMemories: number;
+    totalEntities: number;
+    clusterCount: number;
+    clusters: Record<string, number>;
+  };
+  stale?: boolean;
 }
 
 export interface MemorySearchResponse {
-  results: { memory: Record<string, unknown>; score: number; similarityScore: number }[];
+  results: { memory: MemoryData; score: number; similarityScore: number }[];
   query: string;
   total: number;
 }
 
+export interface CoreFact {
+  id: string;
+  userId: string;
+  agentId: string;
+  playerId: string;
+  factKey: string;
+  factValue: string;
+  sourceMemoryId?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
 export interface CoreFactsResponse {
-  coreFacts: Record<string, unknown>[];
+  coreFacts: CoreFact[];
 }

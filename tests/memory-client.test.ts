@@ -68,7 +68,7 @@ describe('MemoryClient', () => {
     await client.search('test', 20);
     expect(rest.get).toHaveBeenCalledWith(
       '/api/agents/agent-123/players/player-456/memories/search',
-      { query: 'test', limit: 20 },
+      { q: 'test', limit: 20 },
     );
   });
 
