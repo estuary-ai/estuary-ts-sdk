@@ -86,8 +86,8 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
     this._sessionInfo = null;
   }
 
-  /** Send a text message to the character */
-  sendText(text: string, textOnly = false): void {
+  /** Send a text message to the character. Defaults to textOnly=true (no TTS audio response). Pass textOnly=false to receive voice audio. */
+  sendText(text: string, textOnly = true): void {
     this.ensureConnected();
     this.socketManager.emitEvent('text', { text, textOnly });
   }
