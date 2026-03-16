@@ -35,9 +35,10 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
   private _livekitPlayingMessageId: string | null = null;
   /** Drain timer for LiveKit playback — fires after bot_voice events stop arriving */
   private _livekitDrainTimer: ReturnType<typeof setTimeout> | null = null;
-  /** How long to wait after the last bot_voice metadata before declaring LiveKit playback complete (ms).
-   *  Longer than AudioPlayer's 300ms because LiveKit has additional buffering. */
+  /** Fallback drain delay if bot_voice.isFinal is never received (ms) */
   private static readonly LIVEKIT_DRAIN_DELAY_MS = 5000;
+  /** Short drain after bot_voice.isFinal — just enough for LiveKit jitter buffer to flush */
+  private static readonly LIVEKIT_FINAL_DRAIN_MS = 500;
 
   constructor(config: EstuaryConfig) {
     super();
@@ -328,8 +329,13 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
           this.voiceManager?.setSuppressed?.(true);
         }
       }
-      // Reset drain timer — more audio chunks are still arriving
-      this.scheduleLivekitDrain();
+      if (voice.isFinal) {
+        // Last audio chunk — short drain for LiveKit jitter buffer, then end
+        this.scheduleLivekitDrain(EstuaryClient.LIVEKIT_FINAL_DRAIN_MS);
+      } else {
+        // More chunks expected — reset long fallback drain timer
+        this.scheduleLivekitDrain();
+      }
       return;
     }
 
@@ -352,13 +358,13 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
     }, 1500);
   }
 
-  /** Schedule the LiveKit drain timer — ends playback after bot_voice events stop */
-  private scheduleLivekitDrain(): void {
+  /** Schedule the LiveKit drain timer — ends playback after delay */
+  private scheduleLivekitDrain(delayMs = EstuaryClient.LIVEKIT_DRAIN_DELAY_MS): void {
     this.cancelLivekitDrain();
     this._livekitDrainTimer = setTimeout(() => {
       this._livekitDrainTimer = null;
       this.endLivekitPlayback();
-    }, EstuaryClient.LIVEKIT_DRAIN_DELAY_MS);
+    }, delayMs);
   }
 
   private cancelLivekitDrain(): void {
