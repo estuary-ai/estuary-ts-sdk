@@ -79,9 +79,9 @@ The SDK has two completely different audio playback paths depending on the voice
 Bot audio arrives as base64 PCM chunks via `bot_voice` Socket.IO events with an `audio` field. The `AudioPlayer` decodes, buffers, and plays these chunks using Web Audio API. The AudioPlayer emits `started`/`complete` lifecycle events with a 300ms drain delay between chunks.
 
 ### LiveKit path
-Bot audio is streamed directly as a WebRTC media track — the `LiveKitVoiceManager` subscribes to the remote audio track and attaches it to an `<audio>` element. The `AudioPlayer` is **not used**. Instead, the backend sends **metadata-only** `bot_voice` events (with `is_livekit: true`, no `audio` field) for message tracking. The client uses these metadata events to track playback state:
-- First metadata event for a message → emit `audioPlaybackStarted`
-- A 2-second drain timer resets on each metadata event; when it expires (no more chunks), emit `audioPlaybackComplete`
+Bot audio is streamed directly as a WebRTC media track — the `LiveKitVoiceManager` subscribes to the remote audio track and attaches it to an `<audio>` element. The `AudioPlayer` is **not used**. Instead, the backend sends **metadata-only** `bot_voice` events (with `is_livekit: true`, no `audio` field) for message tracking. The client uses these metadata events to detect playback start:
+- First metadata event for a new message → emit `audioPlaybackStarted`
+- Playback completion is detected via LiveKit's `RoomEvent.ActiveSpeakersChanged` (server-side VAD). When the bot (remote participant) drops off the active speakers list, `onBotSpeakingChanged(false)` fires → emit `audioPlaybackComplete`. No client-side drain timer needed.
 
 This distinction matters for any feature that depends on knowing when the bot is speaking (e.g., `suppressMicDuringPlayback`, auto-interrupt, UI indicators). Always check `_isBotPlaying` which covers both paths.
 

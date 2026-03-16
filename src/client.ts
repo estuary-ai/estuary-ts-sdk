@@ -37,7 +37,7 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
   private _livekitDrainTimer: ReturnType<typeof setTimeout> | null = null;
   /** How long to wait after the last bot_voice metadata before declaring LiveKit playback complete (ms).
    *  Longer than AudioPlayer's 300ms because LiveKit has additional buffering. */
-  private static readonly LIVEKIT_DRAIN_DELAY_MS = 2000;
+  private static readonly LIVEKIT_DRAIN_DELAY_MS = 5000;
 
   constructor(config: EstuaryConfig) {
     super();
