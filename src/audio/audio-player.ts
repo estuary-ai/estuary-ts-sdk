@@ -16,6 +16,10 @@ export class AudioPlayer {
   private isPlaying = false;
   private _isCleared = false;
   private _interruptedMessageId: string | null = null;
+  private _drainTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** How long to wait for more chunks before declaring playback complete (ms) */
+  private static readonly DRAIN_DELAY_MS = 300;
 
   constructor(sampleRate: number, onEvent: (event: AudioPlaybackEvent) => void) {
     this.sampleRate = sampleRate;
@@ -58,13 +62,21 @@ export class AudioPlayer {
 
     this.queue.push({ buffer, messageId: voice.messageId });
 
-    if (!this.isPlaying) {
+    // New data arrived — cancel any pending drain timeout so we don't
+    // fire a spurious 'complete' between chunks. If we were draining
+    // (waiting to declare complete), we need to kick playNext because
+    // no active source will trigger it — the previous source already ended.
+    const wasDraining = this._drainTimer !== null;
+    this.cancelDrain();
+
+    if (!this.isPlaying || wasDraining) {
       this.playNext();
     }
   }
 
   clear(): void {
     this._isCleared = true;
+    this.cancelDrain();
     this.queue.length = 0;
     if (this.currentSource) {
       try {
@@ -96,6 +108,7 @@ export class AudioPlayer {
   }
 
   dispose(): void {
+    this.cancelDrain();
     this.clear();
     if (this.audioElement) {
       this.audioElement.pause();
@@ -110,6 +123,27 @@ export class AudioPlayer {
     if (this.audioContext) {
       this.audioContext.close().catch(() => {});
       this.audioContext = null;
+    }
+  }
+
+  private scheduleDrain(): void {
+    if (this._drainTimer) return; // already scheduled
+    this._drainTimer = setTimeout(() => {
+      this._drainTimer = null;
+      // If new data arrived while we waited, playNext will have been called.
+      if (this.queue.length > 0 || this._isCleared) return;
+      if (this.isPlaying && this.currentMessageId) {
+        this.onEvent({ type: 'complete', messageId: this.currentMessageId });
+      }
+      this.isPlaying = false;
+      this.currentMessageId = null;
+    }, AudioPlayer.DRAIN_DELAY_MS);
+  }
+
+  private cancelDrain(): void {
+    if (this._drainTimer) {
+      clearTimeout(this._drainTimer);
+      this._drainTimer = null;
     }
   }
 
@@ -146,13 +180,16 @@ export class AudioPlayer {
 
     const ctx = this.getAudioContext();
     if (!ctx || this.queue.length === 0) {
+      // Don't fire complete immediately — more chunks may still be in flight.
+      // Wait a short grace period before declaring playback done.
       if (this.isPlaying && this.currentMessageId) {
-        this.onEvent({ type: 'complete', messageId: this.currentMessageId });
+        this.scheduleDrain();
       }
-      this.isPlaying = false;
-      this.currentMessageId = null;
       return;
     }
+
+    // We have more data — cancel any pending drain timer
+    this.cancelDrain();
 
     const { buffer, messageId } = this.queue.shift()!;
 

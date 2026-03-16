@@ -64,10 +64,11 @@ export interface WireBotResponse {
 
 /** @internal */
 export interface WireBotVoice {
-  audio: string;
+  audio?: string;
   message_id: string;
   chunk_index: number;
-  is_final: boolean;
+  is_final?: boolean;
+  is_livekit?: boolean;
 }
 
 /** @internal */
@@ -136,10 +137,11 @@ export interface BotResponse {
 }
 
 export interface BotVoice {
-  audio: string;
+  audio?: string;
   messageId: string;
   chunkIndex: number;
-  isFinal: boolean;
+  isFinal?: boolean;
+  isLivekit?: boolean;
 }
 
 export interface SttResponse {
@@ -234,7 +236,8 @@ export function toBotVoice(wire: WireBotVoice): BotVoice {
     audio: wire.audio,
     messageId: wire.message_id,
     chunkIndex: wire.chunk_index,
-    isFinal: wire.is_final,
+    isFinal: wire.is_final ?? false,
+    isLivekit: wire.is_livekit,
   };
 }
 

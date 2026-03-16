@@ -31,6 +31,13 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
   private actionParsers = new Map<string, StreamingActionParser>();
   private _hasAutoInterrupted = false;
   private _autoInterruptGraceTimer: ReturnType<typeof setTimeout> | null = null;
+  /** MessageId currently playing via LiveKit (bypasses AudioPlayer) */
+  private _livekitPlayingMessageId: string | null = null;
+  /** Drain timer for LiveKit playback — fires after bot_voice events stop arriving */
+  private _livekitDrainTimer: ReturnType<typeof setTimeout> | null = null;
+  /** How long to wait after the last bot_voice metadata before declaring LiveKit playback complete (ms).
+   *  Longer than AudioPlayer's 300ms because LiveKit has additional buffering. */
+  private static readonly LIVEKIT_DRAIN_DELAY_MS = 2000;
 
   constructor(config: EstuaryConfig) {
     super();
@@ -79,6 +86,8 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
       clearTimeout(this._autoInterruptGraceTimer);
       this._autoInterruptGraceTimer = null;
     }
+    this.cancelLivekitDrain();
+    this._livekitPlayingMessageId = null;
     await this.stopVoice();
     this.audioPlayer?.dispose();
     this.audioPlayer = null;
@@ -98,6 +107,8 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
     this.socketManager.emitEvent('client_interrupt', { message_id: messageId });
     this.audioPlayer?.setInterruptedMessageId(messageId ?? this.audioPlayer.playingMessageId);
     this.audioPlayer?.clear();
+    this.cancelLivekitDrain();
+    this._livekitPlayingMessageId = null;
     this._hasAutoInterrupted = true;
     if (this._autoInterruptGraceTimer) {
       clearTimeout(this._autoInterruptGraceTimer);
@@ -153,14 +164,7 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
     if (!this.audioPlayer && typeof AudioContext !== 'undefined') {
       this.audioPlayer = new AudioPlayer(sampleRate, (event) => {
         if (event.type === 'started') {
-          // Suppress auto-interrupt during grace period so trailing STT partials
-          // from the user's previous speech don't kill the new audio.
-          this._hasAutoInterrupted = true;
-          if (this._autoInterruptGraceTimer) clearTimeout(this._autoInterruptGraceTimer);
-          this._autoInterruptGraceTimer = setTimeout(() => {
-            this._hasAutoInterrupted = false;
-            this._autoInterruptGraceTimer = null;
-          }, 1500);
+          this.startPlaybackGrace();
           this.emit('audioPlaybackStarted', event.messageId);
           if (this.config.suppressMicDuringPlayback) {
             this.voiceManager?.setSuppressed?.(true);
@@ -202,6 +206,24 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
     return this.voiceManager?.isMuted ?? false;
   }
 
+  /** Whether mic suppression during playback is enabled */
+  get suppressMicDuringPlayback(): boolean {
+    return this.config.suppressMicDuringPlayback ?? false;
+  }
+
+  /** Update mic suppression during playback at runtime (no reconnect needed) */
+  set suppressMicDuringPlayback(value: boolean) {
+    this.config.suppressMicDuringPlayback = value;
+    // Apply immediately if voice is active and bot is currently playing
+    if (this.voiceManager?.isActive) {
+      if (value && this._isBotPlaying) {
+        this.voiceManager.setSuppressed?.(true);
+      } else if (!value) {
+        this.voiceManager.setSuppressed?.(false);
+      }
+    }
+  }
+
   /** Whether voice is currently active */
   get isVoiceActive(): boolean {
     return this.voiceManager?.isActive ?? false;
@@ -237,6 +259,8 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
     this.socketManager.on('interrupt', (data) => {
       this.audioPlayer?.setInterruptedMessageId(data.messageId ?? null);
       this.audioPlayer?.clear();
+      this.cancelLivekitDrain();
+      this._livekitPlayingMessageId = null;
       this.actionParsers.clear();
       if (this.config.suppressMicDuringPlayback) {
         this.voiceManager?.setSuppressed?.(false);
@@ -287,15 +311,81 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
 
   private handleBotVoice(voice: BotVoice): void {
     this.emit('botVoice', voice);
-    // Enqueue audio for playback if we have an audio player
+
+    // LiveKit metadata-only event (audio delivered via LiveKit media track, not socket)
+    if (voice.isLivekit || !voice.audio) {
+      if (voice.messageId !== this._livekitPlayingMessageId) {
+        // Complete previous message if any
+        if (this._livekitPlayingMessageId) {
+          this.cancelLivekitDrain();
+          this.endLivekitPlayback();
+        }
+        // Signal new playback start
+        this._livekitPlayingMessageId = voice.messageId;
+        this.startPlaybackGrace();
+        this.emit('audioPlaybackStarted', voice.messageId);
+        if (this.config.suppressMicDuringPlayback) {
+          this.voiceManager?.setSuppressed?.(true);
+        }
+      }
+      // Reset drain timer — more audio chunks are still arriving
+      this.scheduleLivekitDrain();
+      return;
+    }
+
+    // Standard WebSocket audio path — enqueue PCM data for local playback
     this.audioPlayer?.enqueue(voice);
+  }
+
+  /** Whether bot audio is currently playing (via AudioPlayer or LiveKit) */
+  private get _isBotPlaying(): boolean {
+    return (this.audioPlayer?.playing ?? false) || this._livekitPlayingMessageId !== null;
+  }
+
+  /** Start the auto-interrupt grace period */
+  private startPlaybackGrace(): void {
+    this._hasAutoInterrupted = true;
+    if (this._autoInterruptGraceTimer) clearTimeout(this._autoInterruptGraceTimer);
+    this._autoInterruptGraceTimer = setTimeout(() => {
+      this._hasAutoInterrupted = false;
+      this._autoInterruptGraceTimer = null;
+    }, 1500);
+  }
+
+  /** Schedule the LiveKit drain timer — ends playback after bot_voice events stop */
+  private scheduleLivekitDrain(): void {
+    this.cancelLivekitDrain();
+    this._livekitDrainTimer = setTimeout(() => {
+      this._livekitDrainTimer = null;
+      this.endLivekitPlayback();
+    }, EstuaryClient.LIVEKIT_DRAIN_DELAY_MS);
+  }
+
+  private cancelLivekitDrain(): void {
+    if (this._livekitDrainTimer) {
+      clearTimeout(this._livekitDrainTimer);
+      this._livekitDrainTimer = null;
+    }
+  }
+
+  /** End LiveKit playback tracking and emit complete + unsuppress */
+  private endLivekitPlayback(): void {
+    this.cancelLivekitDrain();
+    const messageId = this._livekitPlayingMessageId;
+    if (!messageId) return;
+    this._livekitPlayingMessageId = null;
+    this.emit('audioPlaybackComplete', messageId);
+    this.notifyAudioPlaybackComplete(messageId);
+    if (this.config.suppressMicDuringPlayback) {
+      this.voiceManager?.setSuppressed?.(false);
+    }
   }
 
   private maybeAutoInterrupt(stt: SttResponse): void {
     if ((this.config.autoInterruptOnSpeech ?? true) === false) return;
     if (this.config.suppressMicDuringPlayback) return;
     if (stt.isFinal) return;
-    if (!this.audioPlayer?.playing) return;
+    if (!this._isBotPlaying) return;
     if (this._hasAutoInterrupted) return;
 
     this._hasAutoInterrupted = true;
