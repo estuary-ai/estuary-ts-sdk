@@ -12,6 +12,12 @@ export class LiveKitVoiceManager implements VoiceManager {
   private speakingStateCallback: ((speaking: boolean) => void) | null = null;
   private audioLevelCallback: ((level: number) => void) | null = null;
 
+  // Audio analyser (via livekit-client's createAudioAnalyser)
+  private calculateVolume: (() => number) | null = null;
+  private analyserCleanup: (() => Promise<void>) | null = null;
+  private audioLevelPollTimer: ReturnType<typeof setInterval> | null = null;
+  private _isBotSpeaking = false;
+
   constructor(socketManager: SocketManager, logger: Logger) {
     this.socketManager = socketManager;
     this.logger = logger;
@@ -82,11 +88,19 @@ export class LiveKitVoiceManager implements VoiceManager {
           document.body.appendChild(audioElement);
         }
         audioElement.play().catch(() => {});
+
+        // Set up audio analyser for real-time level metering
+        this.setupAnalyser(track);
+        if (this._isBotSpeaking) {
+          // Async setupAnalyser may not have completed yet — retry shortly
+          setTimeout(() => this.startAudioLevelPolling(), 50);
+        }
       }
     });
 
     this.room.on(RoomEvent.TrackUnsubscribed, (track: any) => {
       if (track.kind === Track.Kind.Audio) {
+        this.teardownAnalyser();
         track.detach().forEach((el: HTMLMediaElement) => el.remove());
       }
     });
@@ -94,18 +108,9 @@ export class LiveKitVoiceManager implements VoiceManager {
     this.room.on(RoomEvent.Disconnected, () => {
       this.logger.debug('LiveKit room disconnected');
       this._isActive = false;
-      this.speakingStateCallback?.(false);  // Reset speaking state on disconnect
-    });
-
-    this.room.on(RoomEvent.ActiveSpeakersChanged, (speakers: any[]) => {
-      const botParticipant = speakers.find(
-        (p: any) => p !== this.room?.localParticipant
-      );
-      if (botParticipant) {
-        const level = botParticipant.audioLevel ?? 0;
-        this.audioLevelCallback?.(level);
-      }
-      // No else branch -- no zero emission, let lerp decay handle transitions
+      this._isBotSpeaking = false;
+      this.teardownAnalyser();
+      this.speakingStateCallback?.(false);
     });
 
     // Connect to room
@@ -125,13 +130,17 @@ export class LiveKitVoiceManager implements VoiceManager {
     // Listen for participant attribute changes (speaking state from backend)
     this.room.on(RoomEvent.ParticipantAttributesChanged,
       (changedAttributes: Record<string, string>, participant: any) => {
-        // Only care about remote participants (bot), not local
         if (participant === this.room?.localParticipant) return;
         const state = changedAttributes['estuary.state'];
         if (state === 'speaking') {
+          this._isBotSpeaking = true;
           this.speakingStateCallback?.(true);
+          this.startAudioLevelPolling();
         } else if (state === 'idle') {
+          this._isBotSpeaking = false;
+          this.stopAudioLevelPolling();
           this.speakingStateCallback?.(false);
+          this.audioLevelCallback?.(0);
         }
       }
     );
@@ -166,6 +175,9 @@ export class LiveKitVoiceManager implements VoiceManager {
       // May not be connected
     }
 
+    this._isBotSpeaking = false;
+    this.teardownAnalyser();
+
     // Fire final "stopped" if bot was considered speaking
     this.speakingStateCallback?.(false);
 
@@ -195,6 +207,8 @@ export class LiveKitVoiceManager implements VoiceManager {
   dispose(): void {
     this.speakingStateCallback = null;
     this.audioLevelCallback = null;
+    this._isBotSpeaking = false;
+    this.teardownAnalyser();
 
     if (this.room) {
       this.room.disconnect();
@@ -203,6 +217,62 @@ export class LiveKitVoiceManager implements VoiceManager {
     this._isActive = false;
     this._isMuted = false;
   }
+
+  // ─── Audio Analyser (livekit-client built-in) ───────────────────
+
+  private async setupAnalyser(track: any): Promise<void> {
+    this.teardownAnalyser();
+    try {
+      const { createAudioAnalyser } = await import('livekit-client');
+      const { analyser, calculateVolume, cleanup } = createAudioAnalyser(track, {
+        fftSize: 256,
+        smoothingTimeConstant: 0.3,
+      });
+      // Resume the AudioContext — it may start suspended due to browser autoplay policy.
+      // The user has already clicked to start voice, so resume() will succeed.
+      if (analyser.context.state === 'suspended') {
+        await (analyser.context as AudioContext).resume();
+      }
+      this.calculateVolume = calculateVolume;
+      this.analyserCleanup = cleanup;
+      this.logger.debug('Audio analyser created for bot track');
+    } catch (err) {
+      this.logger.debug('Failed to create audio analyser:', err);
+    }
+  }
+
+  private teardownAnalyser(): void {
+    this.stopAudioLevelPolling();
+    if (this.analyserCleanup) {
+      this.analyserCleanup().catch(() => {});
+      this.analyserCleanup = null;
+    }
+    this.calculateVolume = null;
+  }
+
+  private startAudioLevelPolling(): void {
+    if (this.audioLevelPollTimer !== null) return;
+    if (!this.calculateVolume) return;
+
+    // ~30fps polling
+    this.audioLevelPollTimer = setInterval(() => {
+      if (!this.calculateVolume) {
+        this.stopAudioLevelPolling();
+        return;
+      }
+      const vol = this.calculateVolume();
+      this.audioLevelCallback?.(vol);
+    }, 33);
+  }
+
+  private stopAudioLevelPolling(): void {
+    if (this.audioLevelPollTimer !== null) {
+      clearInterval(this.audioLevelPollTimer);
+      this.audioLevelPollTimer = null;
+    }
+  }
+
+  // ─── Private ────────────────────────────────────────────────────
 
   private requestToken(): Promise<LiveKitTokenResponse> {
     return new Promise<LiveKitTokenResponse>((resolve, reject) => {
