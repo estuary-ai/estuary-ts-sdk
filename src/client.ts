@@ -2,6 +2,7 @@ import { SocketManager } from './connection/socket-manager';
 import { createVoiceManager } from './voice/voice-manager';
 import { RestClient } from './rest/rest-client';
 import { MemoryClient } from './rest/memory-client';
+import { CharacterClient } from './rest/character-client';
 import { AudioPlayer } from './audio/audio-player';
 import { TypedEventEmitter } from './utils/event-emitter';
 import { Logger } from './utils/logger';
@@ -11,6 +12,7 @@ import {
   EstuaryEventMap,
   ConnectionState,
   SessionInfo,
+  CharacterInfo,
   BotResponse,
   BotVoice,
   SttResponse,
@@ -27,6 +29,7 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
   private voiceManager: VoiceManager | null = null;
   private audioPlayer: AudioPlayer | null = null;
   private _memory: MemoryClient;
+  private _character: CharacterClient;
   private _sessionInfo: SessionInfo | null = null;
   private actionParsers = new Map<string, StreamingActionParser>();
   private _hasAutoInterrupted = false;
@@ -39,14 +42,20 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
     this.socketManager = new SocketManager(config, this.logger);
     this.forwardSocketEvents();
 
-    // Set up REST client for memory API
+    // Set up REST clients
     const restClient = new RestClient(config.serverUrl, config.apiKey);
     this._memory = new MemoryClient(restClient, config.characterId, config.playerId);
+    this._character = new CharacterClient(restClient);
   }
 
   /** Memory API client for querying memories, graphs, and facts */
   get memory(): MemoryClient {
     return this._memory;
+  }
+
+  /** Fetch character details including 3D model and avatar URLs. */
+  async getCharacter(characterId?: string): Promise<CharacterInfo> {
+    return this._character.getCharacter(characterId ?? this.config.characterId);
   }
 
   /** Current session info (null if not connected) */
@@ -200,6 +209,15 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
   /** Whether the microphone is muted */
   get isMuted(): boolean {
     return this.voiceManager?.isMuted ?? false;
+  }
+
+  /** Get/set suppressMicDuringPlayback at runtime (no reconnect needed) */
+  get suppressMicDuringPlayback(): boolean {
+    return this.config.suppressMicDuringPlayback ?? false;
+  }
+
+  set suppressMicDuringPlayback(enabled: boolean) {
+    this.config.suppressMicDuringPlayback = enabled;
   }
 
   /** Whether voice is currently active */

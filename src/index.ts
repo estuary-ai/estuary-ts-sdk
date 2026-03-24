@@ -9,6 +9,7 @@ export type {
   EstuaryConfig,
   VoiceTransport,
   SessionInfo,
+  CharacterInfo,
   BotResponse,
   BotVoice,
   SttResponse,
@@ -44,3 +45,6 @@ export type { ParsedAction } from './utils/action-parser';
 
 // Memory client (so users can type `client.memory` properly)
 export type { MemoryClient } from './rest/memory-client';
+
+// Character client
+export type { CharacterClient } from './rest/character-client';

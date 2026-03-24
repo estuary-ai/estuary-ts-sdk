@@ -296,6 +296,19 @@ export function toMemoryUpdatedEvent(wire: WireMemoryUpdated): MemoryUpdatedEven
   };
 }
 
+// ─── Character Info ──────────────────────────────────────────────
+
+export interface CharacterInfo {
+  id: string;
+  name: string;
+  tagline: string | null;
+  avatar: string | null;
+  modelUrl: string | null;
+  modelPreviewUrl: string | null;
+  modelStatus: string | null;
+  sourceImageUrl: string | null;
+}
+
 // ─── Character Actions ───────────────────────────────────────────
 
 export interface CharacterAction {
