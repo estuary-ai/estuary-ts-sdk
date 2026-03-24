@@ -9,6 +9,8 @@ export class LiveKitVoiceManager implements VoiceManager {
   private room: any = null; // livekit-client Room (dynamically imported)
   private _isMuted = false;
   private _isActive = false;
+  private audioPlaybackCallback: ((playing: boolean, messageId?: string) => void) | null = null;
+  private speakingDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(socketManager: SocketManager, logger: Logger) {
     this.socketManager = socketManager;
@@ -21,6 +23,10 @@ export class LiveKitVoiceManager implements VoiceManager {
 
   get isActive(): boolean {
     return this._isActive;
+  }
+
+  setAudioPlaybackCallback(cb: (playing: boolean, messageId?: string) => void): void {
+    this.audioPlaybackCallback = cb;
   }
 
   async start(): Promise<void> {
@@ -86,6 +92,30 @@ export class LiveKitVoiceManager implements VoiceManager {
       this._isActive = false;
     });
 
+    this.room.on(RoomEvent.ActiveSpeakersChanged, (speakers: any[]) => {
+      const botSpeaking = speakers.some(
+        (p: any) => p !== this.room?.localParticipant
+      );
+
+      if (botSpeaking) {
+        // Bot started or is still speaking — cancel any pending "stopped" debounce
+        if (this.speakingDebounceTimer) {
+          clearTimeout(this.speakingDebounceTimer);
+          this.speakingDebounceTimer = null;
+        }
+        this.audioPlaybackCallback?.(true);
+      } else {
+        // No remote speakers — debounce the "stopped speaking" to avoid flicker
+        // from brief pauses in speech
+        if (!this.speakingDebounceTimer) {
+          this.speakingDebounceTimer = setTimeout(() => {
+            this.speakingDebounceTimer = null;
+            this.audioPlaybackCallback?.(false);
+          }, 250);
+        }
+      }
+    });
+
     // Connect to room
     try {
       await this.room.connect(tokenData.url, tokenData.token);
@@ -130,6 +160,13 @@ export class LiveKitVoiceManager implements VoiceManager {
       // May not be connected
     }
 
+    if (this.speakingDebounceTimer) {
+      clearTimeout(this.speakingDebounceTimer);
+      this.speakingDebounceTimer = null;
+    }
+    // Fire final "stopped" if bot was considered speaking
+    this.audioPlaybackCallback?.(false);
+
     if (this.room) {
       // Stop local tracks
       for (const [, publication] of this.room.localParticipant.trackPublications) {
@@ -154,6 +191,12 @@ export class LiveKitVoiceManager implements VoiceManager {
   }
 
   dispose(): void {
+    if (this.speakingDebounceTimer) {
+      clearTimeout(this.speakingDebounceTimer);
+      this.speakingDebounceTimer = null;
+    }
+    this.audioPlaybackCallback = null;
+
     if (this.room) {
       this.room.disconnect();
       this.room = null;

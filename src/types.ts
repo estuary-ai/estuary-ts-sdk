@@ -353,6 +353,8 @@ export interface VoiceManager {
   toggleMute(): void;
   /** Suppress audio sending (software AEC). No-op if not supported. */
   setSuppressed?(suppressed: boolean): void;
+  /** Set callback for external audio playback state (e.g., LiveKit ActiveSpeakersChanged). */
+  setAudioPlaybackCallback?(cb: (playing: boolean, messageId?: string) => void): void;
   readonly isMuted: boolean;
   readonly isActive: boolean;
   dispose(): void;

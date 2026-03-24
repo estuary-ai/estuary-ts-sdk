@@ -185,6 +185,12 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
     }
 
     await this.voiceManager.start();
+
+    // Wire LiveKit speaking detection to AudioPlayer event pipeline
+    this.voiceManager.setAudioPlaybackCallback?.((playing: boolean, messageId?: string) => {
+      this.audioPlayer?.setExternalPlaybackState(playing, messageId);
+    });
+
     this.emit('voiceStarted');
   }
 

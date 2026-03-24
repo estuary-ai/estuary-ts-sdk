@@ -37,6 +37,22 @@ export class AudioPlayer {
     this._interruptedMessageId = id;
   }
 
+  /** Signal playback state from external source (e.g., LiveKit ActiveSpeakersChanged). */
+  setExternalPlaybackState(playing: boolean, messageId?: string): void {
+    if (this._isCleared) return;
+    const id = messageId ?? 'livekit-audio';
+    if (playing && !this.isPlaying) {
+      this.isPlaying = true;
+      this.currentMessageId = id;
+      this.onEvent({ type: 'started', messageId: id });
+    } else if (!playing && this.isPlaying) {
+      const completedId = this.currentMessageId ?? id;
+      this.isPlaying = false;
+      this.currentMessageId = null;
+      this.onEvent({ type: 'complete', messageId: completedId });
+    }
+  }
+
   enqueue(voice: BotVoice): void {
     // Drop chunks belonging to the interrupted message
     if (voice.messageId === this._interruptedMessageId) return;
