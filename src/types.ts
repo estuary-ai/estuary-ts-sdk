@@ -342,6 +342,8 @@ export type EstuaryEventMap = {
   livekitDisconnected: () => void;
   audioPlaybackStarted: (messageId: string) => void;
   audioPlaybackComplete: (messageId: string) => void;
+  /** Bot audio level 0.0–1.0, emitted during playback for both transports. */
+  botAudioLevel: (level: number) => void;
   memoryUpdated: (event: MemoryUpdatedEvent) => void;
 }
 
@@ -353,8 +355,10 @@ export interface VoiceManager {
   toggleMute(): void;
   /** Suppress audio sending (software AEC). No-op if not supported. */
   setSuppressed?(suppressed: boolean): void;
-  /** Set callback for external audio playback state (e.g., LiveKit ActiveSpeakersChanged). */
-  setAudioPlaybackCallback?(cb: (playing: boolean, messageId?: string) => void): void;
+  /** Set callback for speaking state from participant attributes (LiveKit only). */
+  setSpeakingStateCallback?(cb: (speaking: boolean) => void): void;
+  /** Set callback for audio level updates (0-1) during bot speech. */
+  setAudioLevelCallback?(cb: (level: number) => void): void;
   readonly isMuted: boolean;
   readonly isActive: boolean;
   dispose(): void;

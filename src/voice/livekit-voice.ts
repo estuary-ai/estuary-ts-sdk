@@ -9,8 +9,8 @@ export class LiveKitVoiceManager implements VoiceManager {
   private room: any = null; // livekit-client Room (dynamically imported)
   private _isMuted = false;
   private _isActive = false;
-  private audioPlaybackCallback: ((playing: boolean, messageId?: string) => void) | null = null;
-  private speakingDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private speakingStateCallback: ((speaking: boolean) => void) | null = null;
+  private audioLevelCallback: ((level: number) => void) | null = null;
 
   constructor(socketManager: SocketManager, logger: Logger) {
     this.socketManager = socketManager;
@@ -25,8 +25,12 @@ export class LiveKitVoiceManager implements VoiceManager {
     return this._isActive;
   }
 
-  setAudioPlaybackCallback(cb: (playing: boolean, messageId?: string) => void): void {
-    this.audioPlaybackCallback = cb;
+  setSpeakingStateCallback(cb: (speaking: boolean) => void): void {
+    this.speakingStateCallback = cb;
+  }
+
+  setAudioLevelCallback(cb: (level: number) => void): void {
+    this.audioLevelCallback = cb;
   }
 
   async start(): Promise<void> {
@@ -90,30 +94,18 @@ export class LiveKitVoiceManager implements VoiceManager {
     this.room.on(RoomEvent.Disconnected, () => {
       this.logger.debug('LiveKit room disconnected');
       this._isActive = false;
+      this.speakingStateCallback?.(false);  // Reset speaking state on disconnect
     });
 
     this.room.on(RoomEvent.ActiveSpeakersChanged, (speakers: any[]) => {
-      const botSpeaking = speakers.some(
+      const botParticipant = speakers.find(
         (p: any) => p !== this.room?.localParticipant
       );
-
-      if (botSpeaking) {
-        // Bot started or is still speaking — cancel any pending "stopped" debounce
-        if (this.speakingDebounceTimer) {
-          clearTimeout(this.speakingDebounceTimer);
-          this.speakingDebounceTimer = null;
-        }
-        this.audioPlaybackCallback?.(true);
-      } else {
-        // No remote speakers — debounce the "stopped speaking" to avoid flicker
-        // from brief pauses in speech
-        if (!this.speakingDebounceTimer) {
-          this.speakingDebounceTimer = setTimeout(() => {
-            this.speakingDebounceTimer = null;
-            this.audioPlaybackCallback?.(false);
-          }, 250);
-        }
+      if (botParticipant) {
+        const level = botParticipant.audioLevel ?? 0;
+        this.audioLevelCallback?.(level);
       }
+      // No else branch -- no zero emission, let lerp decay handle transitions
     });
 
     // Connect to room
@@ -129,6 +121,20 @@ export class LiveKitVoiceManager implements VoiceManager {
         err,
       );
     }
+
+    // Listen for participant attribute changes (speaking state from backend)
+    this.room.on(RoomEvent.ParticipantAttributesChanged,
+      (changedAttributes: Record<string, string>, participant: any) => {
+        // Only care about remote participants (bot), not local
+        if (participant === this.room?.localParticipant) return;
+        const state = changedAttributes['estuary.state'];
+        if (state === 'speaking') {
+          this.speakingStateCallback?.(true);
+        } else if (state === 'idle') {
+          this.speakingStateCallback?.(false);
+        }
+      }
+    );
 
     // Enable microphone
     try {
@@ -160,12 +166,8 @@ export class LiveKitVoiceManager implements VoiceManager {
       // May not be connected
     }
 
-    if (this.speakingDebounceTimer) {
-      clearTimeout(this.speakingDebounceTimer);
-      this.speakingDebounceTimer = null;
-    }
     // Fire final "stopped" if bot was considered speaking
-    this.audioPlaybackCallback?.(false);
+    this.speakingStateCallback?.(false);
 
     if (this.room) {
       // Stop local tracks
@@ -191,11 +193,8 @@ export class LiveKitVoiceManager implements VoiceManager {
   }
 
   dispose(): void {
-    if (this.speakingDebounceTimer) {
-      clearTimeout(this.speakingDebounceTimer);
-      this.speakingDebounceTimer = null;
-    }
-    this.audioPlaybackCallback = null;
+    this.speakingStateCallback = null;
+    this.audioLevelCallback = null;
 
     if (this.room) {
       this.room.disconnect();

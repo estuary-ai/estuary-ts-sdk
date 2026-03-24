@@ -176,6 +176,7 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
           }
         } else if (event.type === 'complete') {
           this.emit('audioPlaybackComplete', event.messageId);
+          this.emit('botAudioLevel', 0);
           this.notifyAudioPlaybackComplete(event.messageId);
           if (this.config.suppressMicDuringPlayback) {
             this.voiceManager?.setSuppressed?.(false);
@@ -186,9 +187,25 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
 
     await this.voiceManager.start();
 
-    // Wire LiveKit speaking detection to AudioPlayer event pipeline
-    this.voiceManager.setAudioPlaybackCallback?.((playing: boolean, messageId?: string) => {
-      this.audioPlayer?.setExternalPlaybackState(playing, messageId);
+    // Wire LiveKit speaking state (participant attributes) to events
+    this.voiceManager.setSpeakingStateCallback?.((speaking: boolean) => {
+      if (speaking) {
+        this.emit('audioPlaybackStarted', 'livekit-audio');
+        if (this.config.suppressMicDuringPlayback) {
+          this.voiceManager?.setSuppressed?.(true);
+        }
+      } else {
+        this.emit('audioPlaybackComplete', 'livekit-audio');
+        this.emit('botAudioLevel', 0);
+        this.notifyAudioPlaybackComplete('livekit-audio');
+        if (this.config.suppressMicDuringPlayback) {
+          this.voiceManager?.setSuppressed?.(false);
+        }
+      }
+    });
+    // Wire LiveKit audio level to botAudioLevel event
+    this.voiceManager.setAudioLevelCallback?.((level: number) => {
+      this.emit('botAudioLevel', level);
     });
 
     this.emit('voiceStarted');
@@ -311,8 +328,38 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
 
   private handleBotVoice(voice: BotVoice): void {
     this.emit('botVoice', voice);
-    // Enqueue audio for playback if we have an audio player
-    this.audioPlayer?.enqueue(voice);
+    if (voice.audio) {
+      // WebSocket transport — real audio data, AudioPlayer handles full lifecycle
+      this.audioPlayer?.enqueue(voice);
+      // Compute and emit audio level from PCM data
+      this.emit('botAudioLevel', this.computeAudioLevel(voice.audio));
+    }
+    // LiveKit transport: no metadata-only events expected anymore.
+    // Speaking state is now driven by participant attributes.
+  }
+
+  /** Compute RMS audio level (0-1) from base64-encoded Int16 PCM. */
+  private computeAudioLevel(base64Audio: string): number {
+    try {
+      const binaryStr = atob(base64Audio);
+      const len = binaryStr.length;
+      // Sample every 8th sample for performance (voice chunks are small)
+      const step = 16; // 8 samples * 2 bytes per Int16
+      let sum = 0;
+      let count = 0;
+      for (let i = 0; i + 1 < len; i += step) {
+        const sample = (binaryStr.charCodeAt(i) | (binaryStr.charCodeAt(i + 1) << 8));
+        const signed = sample > 32767 ? sample - 65536 : sample;
+        const normalized = signed / 32768;
+        sum += normalized * normalized;
+        count++;
+      }
+      if (count === 0) return 0;
+      // RMS is typically 0-0.3 for speech; scale up to 0-1 range
+      return Math.min(1, Math.sqrt(sum / count) * 5);
+    } catch {
+      return 0;
+    }
   }
 
   private maybeAutoInterrupt(stt: SttResponse): void {
