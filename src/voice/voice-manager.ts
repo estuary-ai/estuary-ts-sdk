@@ -13,35 +13,40 @@ async function isLiveKitAvailable(): Promise<boolean> {
   }
 }
 
+export interface VoiceManagerResult {
+  manager: VoiceManager;
+  resolvedTransport: 'websocket' | 'livekit';
+}
+
 export async function createVoiceManager(
   transport: VoiceTransport,
   socketManager: SocketManager,
   sampleRate: number,
   logger: Logger,
-): Promise<VoiceManager | null> {
+): Promise<VoiceManagerResult | null> {
   if (transport === 'websocket') {
     const { WebSocketVoiceManager } = await import('./websocket-voice');
-    return new WebSocketVoiceManager(socketManager, sampleRate, logger);
+    return { manager: new WebSocketVoiceManager(socketManager, sampleRate, logger), resolvedTransport: 'websocket' };
   }
 
   if (transport === 'livekit') {
     if (await isLiveKitAvailable()) {
       const { LiveKitVoiceManager } = await import('./livekit-voice');
-      return new LiveKitVoiceManager(socketManager, logger);
+      return { manager: new LiveKitVoiceManager(socketManager, logger), resolvedTransport: 'livekit' };
     }
     logger.warn('livekit-client not installed, falling back to WebSocket voice');
     const { WebSocketVoiceManager } = await import('./websocket-voice');
-    return new WebSocketVoiceManager(socketManager, sampleRate, logger);
+    return { manager: new WebSocketVoiceManager(socketManager, sampleRate, logger), resolvedTransport: 'websocket' };
   }
 
   // auto: prefer LiveKit if available, else WebSocket
   if (transport === 'auto') {
     if (await isLiveKitAvailable()) {
       const { LiveKitVoiceManager } = await import('./livekit-voice');
-      return new LiveKitVoiceManager(socketManager, logger);
+      return { manager: new LiveKitVoiceManager(socketManager, logger), resolvedTransport: 'livekit' };
     }
     const { WebSocketVoiceManager } = await import('./websocket-voice');
-    return new WebSocketVoiceManager(socketManager, sampleRate, logger);
+    return { manager: new WebSocketVoiceManager(socketManager, sampleRate, logger), resolvedTransport: 'websocket' };
   }
 
   return null;

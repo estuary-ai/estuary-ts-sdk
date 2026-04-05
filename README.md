@@ -120,6 +120,15 @@ import { parseActions } from '@estuary-ai/sdk';
 const { actions, cleanText } = parseActions(rawBotText);
 ```
 
+### Character Info
+
+Fetch character details (name, avatar, 3D model URLs):
+
+```typescript
+const character = await client.getCharacter();
+console.log(character.name, character.avatar);
+```
+
 ### Memory & Knowledge Graph
 
 ```typescript
@@ -237,7 +246,19 @@ interface EstuaryConfig {
   voiceTransport?: 'websocket' | 'livekit' | 'auto'; // Default: 'auto'
   realtimeMemory?: boolean;    // Enable real-time memory extraction events. Default: false
   suppressMicDuringPlayback?: boolean; // Mute mic while bot audio plays (software AEC). Default: false
+  autoInterruptOnSpeech?: boolean;     // Interrupt bot audio when user speaks. Default: true
 }
+```
+
+## Runtime Properties
+
+```typescript
+client.connectionState     // ConnectionState enum (Disconnected, Connecting, Connected, ...)
+client.isConnected         // boolean shorthand
+client.isVoiceActive       // true while voice session is running
+client.isMuted             // current mute state
+client.suppressMicDuringPlayback // get/set at runtime without reconnecting
+client.session             // SessionInfo | null after connect
 ```
 
 ## Exports
@@ -261,6 +282,7 @@ import { parseActions } from '@estuary-ai/sdk';
 import type {
   EstuaryConfig,
   SessionInfo,
+  CharacterInfo,
   BotResponse,
   BotVoice,
   SttResponse,

@@ -12,9 +12,9 @@ export class LiveKitVoiceManager implements VoiceManager {
   private speakingStateCallback: ((speaking: boolean) => void) | null = null;
   private audioLevelCallback: ((level: number) => void) | null = null;
 
-  // Audio analyser (via livekit-client's createAudioAnalyser)
-  private calculateVolume: (() => number) | null = null;
-  private analyserCleanup: (() => Promise<void>) | null = null;
+  // Audio level polling (via LiveKit's server-pushed participant.audioLevel)
+  private botParticipant: any = null;
+  private smoothedAudioLevel = 0;
   private audioLevelPollTimer: ReturnType<typeof setInterval> | null = null;
   private _isBotSpeaking = false;
 
@@ -89,18 +89,19 @@ export class LiveKitVoiceManager implements VoiceManager {
         }
         audioElement.play().catch(() => {});
 
-        // Set up audio analyser for real-time level metering
-        this.setupAnalyser(track);
+        // Store bot participant for audio level polling via participant.audioLevel
+        this.botParticipant = participant;
         if (this._isBotSpeaking) {
-          // Async setupAnalyser may not have completed yet — retry shortly
-          setTimeout(() => this.startAudioLevelPolling(), 50);
+          this.startAudioLevelPolling();
         }
       }
     });
 
     this.room.on(RoomEvent.TrackUnsubscribed, (track: any) => {
       if (track.kind === Track.Kind.Audio) {
-        this.teardownAnalyser();
+        this.stopAudioLevelPolling();
+        this.botParticipant = null;
+        this.smoothedAudioLevel = 0;
         track.detach().forEach((el: HTMLMediaElement) => el.remove());
       }
     });
@@ -109,7 +110,9 @@ export class LiveKitVoiceManager implements VoiceManager {
       this.logger.debug('LiveKit room disconnected');
       this._isActive = false;
       this._isBotSpeaking = false;
-      this.teardownAnalyser();
+      this.stopAudioLevelPolling();
+      this.botParticipant = null;
+      this.smoothedAudioLevel = 0;
       this.speakingStateCallback?.(false);
     });
 
@@ -160,8 +163,23 @@ export class LiveKitVoiceManager implements VoiceManager {
       );
     }
 
-    // Notify backend
-    this.socketManager.emitEvent('livekit_join', { room: tokenData.room });
+    // Notify backend and wait for it to confirm LiveKit audio routing is ready
+    await new Promise<void>((resolve) => {
+      const timeout = setTimeout(() => {
+        this.socketManager.off('livekitConnected', onReady);
+        // Don't fail — proceed anyway, audio may route via Socket.IO fallback
+        this.logger.warn('Timed out waiting for livekit_ready, proceeding');
+        resolve();
+      }, 5000);
+
+      const onReady = () => {
+        clearTimeout(timeout);
+        resolve();
+      };
+      this.socketManager.once('livekitConnected', onReady);
+      this.socketManager.emitEvent('livekit_join', { room: tokenData.room });
+    });
+
     this._isActive = true;
     this.logger.debug('LiveKit voice started');
   }
@@ -176,7 +194,9 @@ export class LiveKitVoiceManager implements VoiceManager {
     }
 
     this._isBotSpeaking = false;
-    this.teardownAnalyser();
+    this.stopAudioLevelPolling();
+    this.botParticipant = null;
+    this.smoothedAudioLevel = 0;
 
     // Fire final "stopped" if bot was considered speaking
     this.speakingStateCallback?.(false);
@@ -208,7 +228,9 @@ export class LiveKitVoiceManager implements VoiceManager {
     this.speakingStateCallback = null;
     this.audioLevelCallback = null;
     this._isBotSpeaking = false;
-    this.teardownAnalyser();
+    this.stopAudioLevelPolling();
+    this.botParticipant = null;
+    this.smoothedAudioLevel = 0;
 
     if (this.room) {
       this.room.disconnect();
@@ -218,50 +240,23 @@ export class LiveKitVoiceManager implements VoiceManager {
     this._isMuted = false;
   }
 
-  // ─── Audio Analyser (livekit-client built-in) ───────────────────
-
-  private async setupAnalyser(track: any): Promise<void> {
-    this.teardownAnalyser();
-    try {
-      const { createAudioAnalyser } = await import('livekit-client');
-      const { analyser, calculateVolume, cleanup } = createAudioAnalyser(track, {
-        fftSize: 256,
-        smoothingTimeConstant: 0.3,
-      });
-      // Resume the AudioContext — it may start suspended due to browser autoplay policy.
-      // The user has already clicked to start voice, so resume() will succeed.
-      if (analyser.context.state === 'suspended') {
-        await (analyser.context as AudioContext).resume();
-      }
-      this.calculateVolume = calculateVolume;
-      this.analyserCleanup = cleanup;
-      this.logger.debug('Audio analyser created for bot track');
-    } catch (err) {
-      this.logger.debug('Failed to create audio analyser:', err);
-    }
-  }
-
-  private teardownAnalyser(): void {
-    this.stopAudioLevelPolling();
-    if (this.analyserCleanup) {
-      this.analyserCleanup().catch(() => {});
-      this.analyserCleanup = null;
-    }
-    this.calculateVolume = null;
-  }
+  // ─── Audio Level Polling (participant.audioLevel) ───────────────
 
   private startAudioLevelPolling(): void {
     if (this.audioLevelPollTimer !== null) return;
-    if (!this.calculateVolume) return;
+    if (!this.botParticipant) return;
 
-    // ~30fps polling
+    // EMA smoothing: alpha=0.35 at 30fps reaches ~87% of step change in ~165ms
+    const alpha = 0.35;
+
     this.audioLevelPollTimer = setInterval(() => {
-      if (!this.calculateVolume) {
+      if (!this.botParticipant) {
         this.stopAudioLevelPolling();
         return;
       }
-      const vol = this.calculateVolume();
-      this.audioLevelCallback?.(vol);
+      const raw = this.botParticipant.audioLevel ?? 0;
+      this.smoothedAudioLevel += alpha * (raw - this.smoothedAudioLevel);
+      this.audioLevelCallback?.(this.smoothedAudioLevel);
     }, 33);
   }
 
@@ -270,6 +265,7 @@ export class LiveKitVoiceManager implements VoiceManager {
       clearInterval(this.audioLevelPollTimer);
       this.audioLevelPollTimer = null;
     }
+    this.smoothedAudioLevel = 0;
   }
 
   // ─── Private ────────────────────────────────────────────────────

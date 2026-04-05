@@ -20,7 +20,7 @@ import {
 } from './types';
 import { StreamingActionParser } from './utils/action-parser';
 
-const DEFAULT_SAMPLE_RATE = 16000;
+const DEFAULT_SAMPLE_RATE = 24000;
 
 export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
   private config: EstuaryConfig;
@@ -153,13 +153,16 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
     const transport = this.config.voiceTransport ?? 'auto';
     const sampleRate = this.config.audioSampleRate ?? DEFAULT_SAMPLE_RATE;
 
-    this.voiceManager = await createVoiceManager(transport, this.socketManager, sampleRate, this.logger);
-    if (!this.voiceManager) {
+    const result = await createVoiceManager(transport, this.socketManager, sampleRate, this.logger);
+    if (!result) {
       throw new EstuaryError(ErrorCode.VOICE_NOT_SUPPORTED, 'No voice transport available');
     }
+    this.voiceManager = result.manager;
 
-    // Set up audio player for bot voice responses (browser only)
-    if (!this.audioPlayer && typeof AudioContext !== 'undefined') {
+    // Set up audio player for bot voice responses (WebSocket only).
+    // In LiveKit mode, audio arrives via WebRTC — the AudioPlayer's AudioContext
+    // and HTMLAudioElement would compete for mobile audio resources.
+    if (!this.audioPlayer && result.resolvedTransport === 'websocket' && typeof AudioContext !== 'undefined') {
       this.audioPlayer = new AudioPlayer(sampleRate, (event) => {
         if (event.type === 'started') {
           // Suppress auto-interrupt during grace period so trailing STT partials

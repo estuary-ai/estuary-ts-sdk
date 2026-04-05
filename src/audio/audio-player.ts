@@ -16,6 +16,8 @@ export class AudioPlayer {
   private isPlaying = false;
   private _isCleared = false;
   private _interruptedMessageId: string | null = null;
+  private _drainTimer: ReturnType<typeof setTimeout> | null = null;
+  private static readonly DRAIN_DELAY_MS = 300;
 
   constructor(sampleRate: number, onEvent: (event: AudioPlaybackEvent) => void) {
     this.sampleRate = sampleRate;
@@ -46,6 +48,8 @@ export class AudioPlayer {
     }
 
     this._isCleared = false;
+    // Cancel pending drain — more audio is arriving
+    this.cancelDrain();
 
     const ctx = this.getAudioContext();
     if (!ctx) return;
@@ -65,6 +69,7 @@ export class AudioPlayer {
 
   clear(): void {
     this._isCleared = true;
+    this.cancelDrain();
     this.queue.length = 0;
     if (this.currentSource) {
       try {
@@ -96,6 +101,7 @@ export class AudioPlayer {
   }
 
   dispose(): void {
+    this.cancelDrain();
     this.clear();
     if (this.audioElement) {
       this.audioElement.pause();
@@ -110,6 +116,28 @@ export class AudioPlayer {
     if (this.audioContext) {
       this.audioContext.close().catch(() => {});
       this.audioContext = null;
+    }
+  }
+
+  /** Schedule a deferred 'complete' event. Cancelled if new chunks arrive. */
+  private scheduleDrain(): void {
+    if (this._drainTimer !== null) return; // already scheduled
+    this._drainTimer = setTimeout(() => {
+      this._drainTimer = null;
+      if (this._isCleared) return;
+      // Queue is still empty after grace period — playback is truly done
+      if (this.queue.length === 0 && this.isPlaying && this.currentMessageId) {
+        this.onEvent({ type: 'complete', messageId: this.currentMessageId });
+        this.isPlaying = false;
+        this.currentMessageId = null;
+      }
+    }, AudioPlayer.DRAIN_DELAY_MS);
+  }
+
+  private cancelDrain(): void {
+    if (this._drainTimer !== null) {
+      clearTimeout(this._drainTimer);
+      this._drainTimer = null;
     }
   }
 
@@ -146,11 +174,11 @@ export class AudioPlayer {
 
     const ctx = this.getAudioContext();
     if (!ctx || this.queue.length === 0) {
+      // Don't fire complete immediately — more chunks may still be in flight.
+      // Wait a short grace period before declaring playback done.
       if (this.isPlaying && this.currentMessageId) {
-        this.onEvent({ type: 'complete', messageId: this.currentMessageId });
+        this.scheduleDrain();
       }
-      this.isPlaying = false;
-      this.currentMessageId = null;
       return;
     }
 

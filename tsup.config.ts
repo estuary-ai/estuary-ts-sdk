@@ -1,17 +1,22 @@
 import { defineConfig } from 'tsup';
 
 export default defineConfig([
+  // ESM — fully self-contained browser build. All deps (socket.io-client,
+  // livekit-client) bundled inline so bundlers that don't respect the `browser`
+  // field or can't resolve external dynamic imports (e.g. Mattercraft) just work.
   {
     entry: ['src/index.ts'],
     format: ['esm'],
-    platform: 'neutral',
+    platform: 'browser',
     dts: true,
     sourcemap: true,
     clean: true,
-    splitting: true,
+    splitting: false,
     treeshake: true,
-    external: ['livekit-client', 'socket.io-client'],
+    // Override tsup's auto-externalization of peerDependencies
+    noExternal: ['livekit-client', 'socket.io-client'],
   },
+  // CJS — Node.js. livekit-client kept external (optional peer dep).
   {
     entry: ['src/index.ts'],
     format: ['cjs'],
@@ -20,6 +25,6 @@ export default defineConfig([
     sourcemap: true,
     splitting: false,
     treeshake: true,
-    external: ['livekit-client', 'socket.io-client'],
+    external: ['livekit-client'],
   },
 ]);
