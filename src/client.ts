@@ -101,6 +101,12 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
     this.socketManager.emitEvent('text', { text, textOnly });
   }
 
+  /** Script the character to say a specific prewritten line. Defaults to TTS enabled (textOnly=false). */
+  sayLine(text: string, textOnly = false): void {
+    this.ensureConnected();
+    this.socketManager.emitEvent('say_line', { text, text_only: textOnly });
+  }
+
   /** Interrupt the current bot response */
   interrupt(messageId?: string): void {
     this.ensureConnected();
