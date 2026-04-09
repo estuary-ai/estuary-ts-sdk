@@ -103,6 +103,7 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
 
   /** Script the character to say a specific prewritten line. Defaults to TTS enabled (textOnly=false). */
   sayLine(text: string, textOnly = false): void {
+    if (!text?.trim()) return;
     this.ensureConnected();
     this.socketManager.emitEvent('say_line', { text, text_only: textOnly });
   }
