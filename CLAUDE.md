@@ -25,6 +25,7 @@ scene_graph: false                      # Not implemented (AR/VR use case)
 device_pose: false                      # Not implemented (AR/VR use case)
 min_audio_sample_rate: 16000
 max_audio_sample_rate: 48000
+default_playback_sample_rate: 24000    # TTS audio generated at 24kHz by default
 ```
 
 ## Parity Status
