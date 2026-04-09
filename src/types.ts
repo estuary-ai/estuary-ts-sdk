@@ -3,8 +3,10 @@
 export interface EstuaryConfig {
   /** Base URL of the Estuary server (e.g., "https://api.estuary-ai.com") */
   serverUrl: string;
-  /** API key (starts with "est_") */
-  apiKey: string;
+  /** API key (starts with "est_"). Required unless sessionToken is provided. */
+  apiKey?: string;
+  /** Session token from share exchange (starts with "sst_"). Alternative to apiKey for share flows. */
+  sessionToken?: string;
   /** Character (agent) ID */
   characterId: string;
   /** Unique identifier for the end user */

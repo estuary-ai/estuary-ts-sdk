@@ -26,7 +26,7 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
   private socketManager: SocketManager;
   private voiceManager: VoiceManager | null = null;
   private audioPlayer: AudioPlayer | null = null;
-  private _memory: MemoryClient;
+  private _memory: MemoryClient | null = null;
   private _sessionInfo: SessionInfo | null = null;
   private actionParsers = new Map<string, StreamingActionParser>();
   private _hasAutoInterrupted = false;
@@ -42,18 +42,28 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
 
   constructor(config: EstuaryConfig) {
     super();
+
+    if (!config.apiKey && !config.sessionToken) {
+      throw new EstuaryError(ErrorCode.AUTH_FAILED, 'Either apiKey or sessionToken must be provided');
+    }
+
     this.config = config;
     this.logger = new Logger(config.debug ?? false);
     this.socketManager = new SocketManager(config, this.logger);
     this.forwardSocketEvents();
 
-    // Set up REST client for memory API
-    const restClient = new RestClient(config.serverUrl, config.apiKey);
-    this._memory = new MemoryClient(restClient, config.characterId, config.playerId);
+    // Set up REST clients (only if apiKey is available — session token flows use proxy)
+    if (config.apiKey) {
+      const restClient = new RestClient(config.serverUrl, config.apiKey);
+      this._memory = new MemoryClient(restClient, config.characterId, config.playerId);
+    }
   }
 
   /** Memory API client for querying memories, graphs, and facts */
   get memory(): MemoryClient {
+    if (!this._memory) {
+      throw new EstuaryError(ErrorCode.NOT_CONNECTED, 'REST API not available with session token auth. Use a server-side proxy for REST calls.');
+    }
     return this._memory;
   }
 

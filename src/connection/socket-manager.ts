@@ -85,13 +85,20 @@ export class SocketManager extends TypedEventEmitter<EstuaryEventMap> {
 
       const onConnect = () => {
         this.logger.debug('Socket connected, authenticating...');
-        this.socket!.emit('authenticate', {
-          api_key: this.config.apiKey,
+        const authPayload: Record<string, unknown> = {
           character_id: this.config.characterId,
           player_id: this.config.playerId,
           audio_sample_rate: this.config.audioSampleRate ?? 16000,
           realtime_memory: this.config.realtimeMemory ?? false,
-        });
+        };
+
+        if (this.config.sessionToken) {
+          authPayload.api_key = this.config.sessionToken;  // Backend resolves sst_ prefix
+        } else if (this.config.apiKey) {
+          authPayload.api_key = this.config.apiKey;
+        }
+
+        this.socket!.emit('authenticate', authPayload);
       };
 
       const onSessionInfo = (data: WireSessionInfo) => {
