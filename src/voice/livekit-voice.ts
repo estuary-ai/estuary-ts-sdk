@@ -8,6 +8,7 @@ export class LiveKitVoiceManager implements VoiceManager {
   private logger: Logger;
   private room: any = null; // livekit-client Room (dynamically imported)
   private _isMuted = false;
+  private _isSuppressed = false;
   private _isActive = false;
   private speakingStateCallback: ((speaking: boolean) => void) | null = null;
   private audioLevelCallback: ((level: number) => void) | null = null;
@@ -214,14 +215,21 @@ export class LiveKitVoiceManager implements VoiceManager {
 
     this._isActive = false;
     this._isMuted = false;
+    this._isSuppressed = false;
     this.logger.debug('LiveKit voice stopped');
   }
 
   toggleMute(): void {
     if (!this._isActive || !this.room) return;
     this._isMuted = !this._isMuted;
-    this.room.localParticipant.setMicrophoneEnabled(!this._isMuted);
+    this.updateTrackEnabled();
     this.logger.debug('Mute toggled:', this._isMuted);
+  }
+
+  setSuppressed(suppressed: boolean): void {
+    this._isSuppressed = suppressed;
+    this.updateTrackEnabled();
+    this.logger.debug('Audio suppression:', suppressed ? 'on' : 'off');
   }
 
   dispose(): void {
@@ -238,6 +246,20 @@ export class LiveKitVoiceManager implements VoiceManager {
     }
     this._isActive = false;
     this._isMuted = false;
+    this._isSuppressed = false;
+  }
+
+  /** Mute/unmute the local audio track directly via MediaStreamTrack.enabled.
+   *  This avoids setMicrophoneEnabled() which publishes/unpublishes the track
+   *  through the LiveKit server and can fail with engine timeout errors. */
+  private updateTrackEnabled(): void {
+    if (!this.room) return;
+    const enabled = !this._isMuted && !this._isSuppressed;
+    for (const [, publication] of this.room.localParticipant.audioTrackPublications) {
+      if (publication.track?.mediaStreamTrack) {
+        publication.track.mediaStreamTrack.enabled = enabled;
+      }
+    }
   }
 
   // ─── Audio Level Polling (participant.audioLevel) ───────────────

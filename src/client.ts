@@ -21,6 +21,8 @@ import {
 import { StreamingActionParser } from './utils/action-parser';
 
 const DEFAULT_SAMPLE_RATE = 24000;
+const REST_UNAVAILABLE_MESSAGE =
+  'REST API not available with session token auth. Use a server-side proxy for REST calls.';
 
 export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
   private config: EstuaryConfig;
@@ -28,33 +30,51 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
   private socketManager: SocketManager;
   private voiceManager: VoiceManager | null = null;
   private audioPlayer: AudioPlayer | null = null;
-  private _memory: MemoryClient;
-  private _character: CharacterClient;
+  private _memory: MemoryClient | null = null;
+  private _character: CharacterClient | null = null;
   private _sessionInfo: SessionInfo | null = null;
   private actionParsers = new Map<string, StreamingActionParser>();
   private _hasAutoInterrupted = false;
   private _autoInterruptGraceTimer: ReturnType<typeof setTimeout> | null = null;
+  private _isLiveKitSpeaking = false;
 
   constructor(config: EstuaryConfig) {
     super();
+
+    if (!config.apiKey && !config.sessionToken) {
+      throw new EstuaryError(
+        ErrorCode.AUTH_FAILED,
+        'Either apiKey or sessionToken must be provided',
+      );
+    }
+
     this.config = config;
     this.logger = new Logger(config.debug ?? false);
     this.socketManager = new SocketManager(config, this.logger);
     this.forwardSocketEvents();
 
-    // Set up REST clients
-    const restClient = new RestClient(config.serverUrl, config.apiKey);
-    this._memory = new MemoryClient(restClient, config.characterId, config.playerId);
-    this._character = new CharacterClient(restClient);
+    // REST clients require an apiKey. Session-token flows (share links) must
+    // use a server-side proxy for any REST calls.
+    if (config.apiKey) {
+      const restClient = new RestClient(config.serverUrl, config.apiKey);
+      this._memory = new MemoryClient(restClient, config.characterId, config.playerId);
+      this._character = new CharacterClient(restClient);
+    }
   }
 
   /** Memory API client for querying memories, graphs, and facts */
   get memory(): MemoryClient {
+    if (!this._memory) {
+      throw new EstuaryError(ErrorCode.NOT_CONNECTED, REST_UNAVAILABLE_MESSAGE);
+    }
     return this._memory;
   }
 
   /** Fetch character details including 3D model and avatar URLs. */
   async getCharacter(characterId?: string): Promise<CharacterInfo> {
+    if (!this._character) {
+      throw new EstuaryError(ErrorCode.NOT_CONNECTED, REST_UNAVAILABLE_MESSAGE);
+    }
     return this._character.getCharacter(characterId ?? this.config.characterId);
   }
 
@@ -172,14 +192,7 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
     if (!this.audioPlayer && result.resolvedTransport === 'websocket' && typeof AudioContext !== 'undefined') {
       this.audioPlayer = new AudioPlayer(sampleRate, (event) => {
         if (event.type === 'started') {
-          // Suppress auto-interrupt during grace period so trailing STT partials
-          // from the user's previous speech don't kill the new audio.
-          this._hasAutoInterrupted = true;
-          if (this._autoInterruptGraceTimer) clearTimeout(this._autoInterruptGraceTimer);
-          this._autoInterruptGraceTimer = setTimeout(() => {
-            this._hasAutoInterrupted = false;
-            this._autoInterruptGraceTimer = null;
-          }, 1500);
+          this.startPlaybackGrace();
           this.emit('audioPlaybackStarted', event.messageId);
           if (this.config.suppressMicDuringPlayback) {
             this.voiceManager?.setSuppressed?.(true);
@@ -199,7 +212,9 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
 
     // Wire LiveKit speaking state (participant attributes) to events
     this.voiceManager.setSpeakingStateCallback?.((speaking: boolean) => {
+      this._isLiveKitSpeaking = speaking;
       if (speaking) {
+        this.startPlaybackGrace();
         this.emit('audioPlaybackStarted', 'livekit-audio');
         if (this.config.suppressMicDuringPlayback) {
           this.voiceManager?.setSuppressed?.(true);
@@ -227,6 +242,7 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
       await this.voiceManager.stop();
       this.voiceManager.dispose();
       this.voiceManager = null;
+      this._isLiveKitSpeaking = false;
       this.emit('voiceStopped');
     }
   }
@@ -244,13 +260,20 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
     return this.voiceManager?.isMuted ?? false;
   }
 
-  /** Get/set suppressMicDuringPlayback at runtime (no reconnect needed) */
+  /** Whether mic suppression during playback is enabled */
   get suppressMicDuringPlayback(): boolean {
     return this.config.suppressMicDuringPlayback ?? false;
   }
 
+  /** Update mic suppression during playback at runtime (no reconnect needed) */
   set suppressMicDuringPlayback(enabled: boolean) {
     this.config.suppressMicDuringPlayback = enabled;
+    if (!this.voiceManager?.isActive) return;
+    if (enabled && this._isBotPlaying) {
+      this.voiceManager.setSuppressed?.(true);
+    } else if (!enabled) {
+      this.voiceManager.setSuppressed?.(false);
+    }
   }
 
   /** Whether voice is currently active */
@@ -264,6 +287,22 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
     if (!this.socketManager.isConnected) {
       throw new EstuaryError(ErrorCode.NOT_CONNECTED, 'Not connected to server. Call connect() first.');
     }
+  }
+
+  /** Whether bot audio is currently playing (via AudioPlayer or LiveKit) */
+  private get _isBotPlaying(): boolean {
+    return (this.audioPlayer?.playing ?? false) || this._isLiveKitSpeaking;
+  }
+
+  /** Suppress auto-interrupt for 1500ms so trailing STT partials from the
+   *  user's previous speech don't kill the new bot audio. */
+  private startPlaybackGrace(): void {
+    this._hasAutoInterrupted = true;
+    if (this._autoInterruptGraceTimer) clearTimeout(this._autoInterruptGraceTimer);
+    this._autoInterruptGraceTimer = setTimeout(() => {
+      this._hasAutoInterrupted = false;
+      this._autoInterruptGraceTimer = null;
+    }, 1500);
   }
 
   private forwardSocketEvents(): void {
@@ -344,8 +383,9 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
       // Compute and emit audio level from PCM data
       this.emit('botAudioLevel', this.computeAudioLevel(voice.audio));
     }
-    // LiveKit transport: no metadata-only events expected anymore.
-    // Speaking state is now driven by participant attributes.
+    // LiveKit transport: metadata-only bot_voice events are ignored.
+    // Speaking lifecycle is driven by participant attributes via
+    // setSpeakingStateCallback in startVoice().
   }
 
   /** Compute RMS audio level (0-1) from base64-encoded Int16 PCM. */
@@ -376,7 +416,7 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
     if ((this.config.autoInterruptOnSpeech ?? true) === false) return;
     if (this.config.suppressMicDuringPlayback) return;
     if (stt.isFinal) return;
-    if (!this.audioPlayer?.playing) return;
+    if (!this._isBotPlaying) return;
     if (this._hasAutoInterrupted) return;
 
     this._hasAutoInterrupted = true;

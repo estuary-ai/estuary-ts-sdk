@@ -119,11 +119,13 @@ export class WebSocketVoiceManager implements VoiceManager {
   }
 
   toggleMute(): void {
-    if (!this._isActive || !this.mediaStream) return;
+    if (!this._isActive) return;
     this._isMuted = !this._isMuted;
-    for (const track of this.mediaStream.getAudioTracks()) {
-      track.enabled = !this._isMuted;
-    }
+    // Mute is enforced purely in the onaudioprocess gate (alongside _isSuppressed).
+    // We intentionally do NOT touch track.enabled — toggling the track conflicts
+    // with suppressMicDuringPlayback, which also gates via _isSuppressed in the
+    // same callback. Disabling the track would prevent audio from resuming when
+    // suppression lifts, and re-enabling it from suppression would override mute.
     this.logger.debug('Mute toggled:', this._isMuted);
   }
 

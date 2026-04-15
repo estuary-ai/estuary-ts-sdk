@@ -3,8 +3,10 @@
 export interface EstuaryConfig {
   /** Base URL of the Estuary server (e.g., "https://api.estuary-ai.com") */
   serverUrl: string;
-  /** API key (starts with "est_") */
-  apiKey: string;
+  /** API key (starts with "est_"). Required unless sessionToken is provided. */
+  apiKey?: string;
+  /** Session token from share exchange (starts with "sst_"). Alternative to apiKey for share flows. */
+  sessionToken?: string;
   /** Character (agent) ID */
   characterId: string;
   /** Unique identifier for the end user */
@@ -64,10 +66,11 @@ export interface WireBotResponse {
 
 /** @internal */
 export interface WireBotVoice {
-  audio: string;
+  audio?: string;
   message_id: string;
   chunk_index: number;
-  is_final: boolean;
+  is_final?: boolean;
+  is_livekit?: boolean;
 }
 
 /** @internal */
@@ -136,10 +139,11 @@ export interface BotResponse {
 }
 
 export interface BotVoice {
-  audio: string;
+  audio?: string;
   messageId: string;
   chunkIndex: number;
-  isFinal: boolean;
+  isFinal?: boolean;
+  isLivekit?: boolean;
 }
 
 export interface SttResponse {
@@ -234,7 +238,8 @@ export function toBotVoice(wire: WireBotVoice): BotVoice {
     audio: wire.audio,
     messageId: wire.message_id,
     chunkIndex: wire.chunk_index,
-    isFinal: wire.is_final,
+    isFinal: wire.is_final ?? false,
+    isLivekit: wire.is_livekit,
   };
 }
 

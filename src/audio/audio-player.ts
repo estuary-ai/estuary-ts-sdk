@@ -17,6 +17,8 @@ export class AudioPlayer {
   private _isCleared = false;
   private _interruptedMessageId: string | null = null;
   private _drainTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** How long to wait for more chunks before declaring playback complete (ms) */
   private static readonly DRAIN_DELAY_MS = 300;
 
   constructor(sampleRate: number, onEvent: (event: AudioPlaybackEvent) => void) {
@@ -40,6 +42,8 @@ export class AudioPlayer {
   }
 
   enqueue(voice: BotVoice): void {
+    // LiveKit metadata events have no audio payload — caller should route those separately
+    if (!voice.audio) return;
     // Drop chunks belonging to the interrupted message
     if (voice.messageId === this._interruptedMessageId) return;
     // Clear the filter once a new message arrives
@@ -62,7 +66,14 @@ export class AudioPlayer {
 
     this.queue.push({ buffer, messageId: voice.messageId });
 
-    if (!this.isPlaying) {
+    // New data arrived — cancel any pending drain timeout so we don't
+    // fire a spurious 'complete' between chunks. If we were draining
+    // (waiting to declare complete), we need to kick playNext because
+    // no active source will trigger it — the previous source already ended.
+    const wasDraining = this._drainTimer !== null;
+    this.cancelDrain();
+
+    if (!this.isPlaying || wasDraining) {
       this.playNext();
     }
   }
@@ -181,6 +192,9 @@ export class AudioPlayer {
       }
       return;
     }
+
+    // We have more data — cancel any pending drain timer
+    this.cancelDrain();
 
     const { buffer, messageId } = this.queue.shift()!;
 
