@@ -238,7 +238,7 @@ interface EstuaryConfig {
   apiKey: string;              // API key (est_...)
   characterId: string;         // Character ID
   playerId: string;            // End user ID
-  audioSampleRate?: number;    // Default: 16000
+  audioSampleRate?: number;    // Default: 24000
   autoReconnect?: boolean;     // Default: true
   maxReconnectAttempts?: number; // Default: 5
   reconnectDelayMs?: number;   // Default: 2000

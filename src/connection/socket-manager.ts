@@ -88,7 +88,7 @@ export class SocketManager extends TypedEventEmitter<EstuaryEventMap> {
         const authPayload: Record<string, unknown> = {
           character_id: this.config.characterId,
           player_id: this.config.playerId,
-          audio_sample_rate: this.config.audioSampleRate ?? 16000,
+          audio_sample_rate: this.config.audioSampleRate ?? 24000,
           realtime_memory: this.config.realtimeMemory ?? false,
         };
 

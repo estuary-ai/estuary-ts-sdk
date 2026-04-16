@@ -51,7 +51,7 @@ describe('SocketManager', () => {
       api_key: 'est_test_key',
       character_id: 'char-123',
       player_id: 'player-456',
-      audio_sample_rate: 16000,
+      audio_sample_rate: 24000,
       realtime_memory: false,
     });
 
