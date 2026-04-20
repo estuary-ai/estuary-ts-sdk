@@ -52,6 +52,7 @@ describe('SocketManager', () => {
       character_id: 'char-123',
       player_id: 'player-456',
       audio_sample_rate: 24000,
+      enable_animation: false,
       realtime_memory: false,
     });
 
@@ -105,5 +106,127 @@ describe('SocketManager', () => {
     expect(mockSocket.disconnect).toHaveBeenCalled();
     expect(manager.state).toBe(ConnectionState.Disconnected);
     expect(manager.session).toBeNull();
+  });
+});
+
+describe('bot_animation wiring', () => {
+  let manager: SocketManager;
+  const baseConfig = {
+    serverUrl: 'https://api.example.com',
+    apiKey: 'est_test_key',
+    characterId: 'char-123',
+    playerId: 'player-456',
+    autoReconnect: false,
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockSocket.connected = false;
+    manager = new SocketManager(baseConfig, new Logger(false));
+  });
+
+  it('forwards bot_animation with camelCase conversion', async () => {
+    const serverHandlers: Record<string, (...args: unknown[]) => void> = {};
+    mockSocket.on.mockImplementation((event: string, handler: (...args: unknown[]) => void) => {
+      serverHandlers[event] = handler;
+    });
+
+    // Spy on manager.emit
+    const emitSpy = vi.spyOn(manager, 'emit');
+
+    const connectPromise = manager.connect();
+    // Trigger connect → authenticate
+    serverHandlers['connect']();
+    // Resolve session
+    serverHandlers['session_info']({
+      session_id: 'sess-anim',
+      conversation_id: 'conv-anim',
+      character_id: 'char-123',
+      player_id: 'player-456',
+    });
+    await connectPromise;
+
+    // Simulate server emitting bot_animation
+    const wirePayload = {
+      message_id: 'msg-001',
+      sequence: 42,
+      time_code_sec: 1.4,
+      fps: 30,
+      weights: { jawOpen: 0.42, eyeBlinkLeft: 0.1 },
+      emit_epoch_ms: 1714300000000,
+      is_final: false,
+    };
+    serverHandlers['bot_animation'](wirePayload);
+
+    expect(emitSpy).toHaveBeenCalledWith('botAnimation', {
+      messageId: 'msg-001',
+      sequence: 42,
+      timeCodeSec: 1.4,
+      fps: 30,
+      weights: { jawOpen: 0.42, eyeBlinkLeft: 0.1 },
+      emitEpochMs: 1714300000000,
+      isFinal: false,
+    });
+  });
+
+  it('includes enable_animation=true in auth payload when config.enableAnimation=true', async () => {
+    const handlers: Record<string, (...args: unknown[]) => void> = {};
+    mockSocket.on.mockImplementation((event: string, handler: (...args: unknown[]) => void) => {
+      handlers[event] = handler;
+    });
+
+    const animManager = new SocketManager(
+      { ...baseConfig, enableAnimation: true },
+      new Logger(false),
+    );
+
+    animManager.connect();
+    handlers['connect']();
+
+    const authenticateCalls = mockSocket.emit.mock.calls.filter(
+      (call: unknown[]) => call[0] === 'authenticate',
+    );
+    expect(authenticateCalls.length).toBeGreaterThanOrEqual(1);
+    const authPayload = authenticateCalls[authenticateCalls.length - 1][1] as Record<string, unknown>;
+    expect(authPayload.enable_animation).toBe(true);
+  });
+
+  it('defaults enable_animation=false when config.enableAnimation is omitted', async () => {
+    const handlers: Record<string, (...args: unknown[]) => void> = {};
+    mockSocket.on.mockImplementation((event: string, handler: (...args: unknown[]) => void) => {
+      handlers[event] = handler;
+    });
+
+    manager.connect();
+    handlers['connect']();
+
+    const authenticateCalls = mockSocket.emit.mock.calls.filter(
+      (call: unknown[]) => call[0] === 'authenticate',
+    );
+    expect(authenticateCalls.length).toBeGreaterThanOrEqual(1);
+    const authPayload = authenticateCalls[authenticateCalls.length - 1][1] as Record<string, unknown>;
+    expect(authPayload.enable_animation).toBe(false);
+  });
+
+  it('defaults enable_animation=false when config.enableAnimation=false', async () => {
+    const handlers: Record<string, (...args: unknown[]) => void> = {};
+    mockSocket.on.mockImplementation((event: string, handler: (...args: unknown[]) => void) => {
+      handlers[event] = handler;
+    });
+
+    const noAnimManager = new SocketManager(
+      { ...baseConfig, enableAnimation: false },
+      new Logger(false),
+    );
+
+    noAnimManager.connect();
+    handlers['connect']();
+
+    const authenticateCalls = mockSocket.emit.mock.calls.filter(
+      (call: unknown[]) => call[0] === 'authenticate',
+    );
+    expect(authenticateCalls.length).toBeGreaterThanOrEqual(1);
+    const authPayload = authenticateCalls[authenticateCalls.length - 1][1] as Record<string, unknown>;
+    expect(authPayload.enable_animation).toBe(false);
   });
 });
