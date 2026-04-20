@@ -35,6 +35,7 @@ export type {
   CoreFactsResponse,
   MemoryData,
   MemoryUpdatedEvent,
+  ShareOpenResponse,
 } from './types';
 
 export { ConnectionState } from './types';

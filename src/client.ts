@@ -13,6 +13,7 @@ import {
   ConnectionState,
   SessionInfo,
   CharacterInfo,
+  ShareOpenResponse,
   BotResponse,
   BotVoice,
   SttResponse,
@@ -76,6 +77,30 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
       throw new EstuaryError(ErrorCode.NOT_CONNECTED, REST_UNAVAILABLE_MESSAGE);
     }
     return this._character.getCharacter(characterId ?? this.config.characterId);
+  }
+
+  /**
+   * Open a permanent share link. Calls the backend's /open endpoint to mint a
+   * fresh session token and resolve character metadata (including modelUrl).
+   * Use the returned fields to construct an EstuaryClient with sessionToken auth.
+   */
+  static async openShare(
+    serverUrl: string,
+    shareId: string,
+  ): Promise<ShareOpenResponse> {
+    const url = `${serverUrl.replace(/\/+$/, '')}/api/v1/share/${shareId}/open`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '');
+      throw new EstuaryError(
+        ErrorCode.REST_ERROR,
+        `Share open failed (${res.status}): ${detail}`,
+      );
+    }
+    return res.json() as Promise<ShareOpenResponse>;
   }
 
   /** Current session info (null if not connected) */

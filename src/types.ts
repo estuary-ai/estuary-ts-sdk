@@ -314,6 +314,16 @@ export interface CharacterInfo {
   sourceImageUrl: string | null;
 }
 
+// ─── Share Types ────────────────────────────────────────────────
+
+export interface ShareOpenResponse {
+  sessionToken: string;
+  characterId: string;
+  playerId: string;
+  serverUrl: string;
+  character: CharacterInfo & { personality?: string | null };
+}
+
 // ─── Character Actions ───────────────────────────────────────────
 
 export interface CharacterAction {
