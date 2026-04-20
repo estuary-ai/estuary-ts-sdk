@@ -274,10 +274,43 @@ export function toBotAnimation(wire: WireBotAnimation): BotAnimation {
     sequence: wire.sequence,
     timeCodeSec: wire.time_code_sec,
     fps: wire.fps,
-    weights: wire.weights,
+    // Normalize blendshape key casing: the NVIDIA A2F NIM emits blendshape
+    // names in PascalCase (e.g., `JawOpen`, `EyeBlinkLeft`), but the ARKit-52
+    // canonical naming and CC5 GLB morph targets use camelCase (`jawOpen`,
+    // `eyeBlinkLeft`). Lower-casing the first character is a safe, lossless
+    // transform for ARKit-like names (ASCII-first-letter, no leading digits).
+    // Keys that are already camelCase are unchanged. This keeps consumers
+    // naming-convention-agnostic.
+    weights: normalizeBlendshapeKeys(wire.weights),
     emitEpochMs: wire.emit_epoch_ms,
     isFinal: wire.is_final,
   };
+}
+
+/**
+ * Lowercase the first character of each key in a weights map.
+ * `JawOpen` → `jawOpen`; `jawOpen` → `jawOpen` (no-op);
+ * `` → `` (empty keys pass through).
+ */
+function normalizeBlendshapeKeys(
+  weights: Record<string, number>,
+): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const k in weights) {
+    if (k.length === 0) {
+      out[k] = weights[k];
+      continue;
+    }
+    const first = k.charCodeAt(0);
+    // Only transform ASCII uppercase A-Z (65-90). Leaves already-camelCase keys
+    // and non-ASCII-prefixed keys untouched.
+    if (first >= 65 && first <= 90) {
+      out[k[0].toLowerCase() + k.slice(1)] = weights[k];
+    } else {
+      out[k] = weights[k];
+    }
+  }
+  return out;
 }
 
 /** @internal */
