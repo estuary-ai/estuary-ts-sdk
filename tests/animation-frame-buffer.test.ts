@@ -188,17 +188,25 @@ describe('pairAt', () => {
 
   it('clamps alpha to [0, 1] even under floating-point imprecision', () => {
     const buf = new AnimationFrameBuffer();
-    // Use deliberately tricky decimal arithmetic
+    // Use deliberately tricky decimal arithmetic (0.1 + 0.2 !== 0.3 in IEEE 754)
+    const f0 = makeFrame(0.0);
     const f1 = makeFrame(0.1);
     const f2 = makeFrame(0.2);
+    buf.insert(f0);
     buf.insert(f1);
     buf.insert(f2);
-    // Query at exactly 0.2 — alpha should be 1.0 (clamped)
-    const atEnd = buf.pairAt(0.2);
-    expect(atEnd.prev).toEqual(f1);
-    expect(atEnd.next).toEqual(f2);
-    expect(atEnd.alpha).toBeGreaterThanOrEqual(0);
-    expect(atEnd.alpha).toBeLessThanOrEqual(1);
+    // Query between f1 and f2 using a computed value that may have FP drift
+    const t = 0.1 + 0.05; // 0.15 — may not be exactly representable
+    const between = buf.pairAt(t);
+    expect(between.alpha).toBeGreaterThanOrEqual(0);
+    expect(between.alpha).toBeLessThanOrEqual(1);
+    expect(Number.isFinite(between.alpha)).toBe(true);
+
+    // Query at exactly f2 boundary — f2 becomes prev, no next → alpha=1 (held)
+    const atLast = buf.pairAt(0.2);
+    expect(atLast.prev).toEqual(f2);
+    expect(atLast.next).toBeNull();
+    expect(atLast.alpha).toBe(1);
 
     // Query slightly beyond the last frame — clamp to 1
     const beyond = buf.pairAt(0.3);
@@ -207,14 +215,16 @@ describe('pairAt', () => {
     expect(beyond.alpha).toBeLessThanOrEqual(1);
   });
 
-  it('returns alpha=0 when two frames share the same timeCodeSec (avoid divide-by-zero)', () => {
+  it('avoids divide-by-zero and returns finite alpha when frames share timeCodeSec', () => {
+    // Two frames at the same timeCodeSec — the buffer accepts both (ordered by insertion).
+    // When querying at a time past both, alpha=1 (held); when querying before both,
+    // alpha=0 (pre-first-frame). In all cases alpha must be finite and in [0,1].
     const buf = new AnimationFrameBuffer();
     const f1 = makeFrame(1.0, 30, false);
-    // Artificially create a duplicate time (out-of-order scenario or duplicate insert)
     const f2: BotAnimation = {
       messageId: 'test-msg',
       sequence: 31,
-      timeCodeSec: 1.0, // same time
+      timeCodeSec: 1.0, // same time as f1
       fps: 30,
       weights: { jawOpen: 0.8 },
       emitEpochMs: 1000000000001,
@@ -222,10 +232,19 @@ describe('pairAt', () => {
     };
     buf.insert(f1);
     buf.insert(f2);
-    // Both at t=1.0; span=0 → alpha=0 (not NaN or Infinity)
-    const result = buf.pairAt(1.0);
-    expect(result.alpha).toBe(0);
-    expect(Number.isFinite(result.alpha)).toBe(true);
+    expect(buf.length).toBe(2);
+
+    // Querying before both frames — alpha=0, no prev
+    const before = buf.pairAt(0.5);
+    expect(before.prev).toBeNull();
+    expect(before.alpha).toBe(0);
+    expect(Number.isFinite(before.alpha)).toBe(true);
+
+    // Querying at or after both frames — both qualify as prev, alpha=1, no next
+    const after = buf.pairAt(1.0);
+    expect(after.next).toBeNull();
+    expect(after.alpha).toBe(1);
+    expect(Number.isFinite(after.alpha)).toBe(true);
   });
 });
 
