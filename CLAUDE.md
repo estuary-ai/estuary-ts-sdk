@@ -46,6 +46,7 @@ default_playback_sample_rate: 24000    # TTS audio generated at 24kHz by default
 | memory_rest_api | Implemented | client.memory.* methods |
 | memory_push | Implemented | memoryUpdated event for real-time extraction notifications |
 | suppress_mic_during_playback | Implemented | Works across both WebSocket and LiveKit transports |
+| bot_animation | Implemented | WireBotAnimation/BotAnimation types + toBotAnimation converter + EstuaryConfig.enableAnimation (Phase 2 Wave 1); hook + buffer in Phase 2 Wave 2 |
 
 ## Architecture
 
