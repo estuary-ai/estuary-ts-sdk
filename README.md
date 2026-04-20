@@ -164,6 +164,86 @@ client.on('memoryUpdated', (event) => {
 await client.connect();
 ```
 
+### Animation Stream (A2F Lipsync)
+
+Subscribe to Audio2Face animation frames for character lipsync. The hook is in a separate sub-path export so non-React consumers don't need React as a dependency.
+
+> **A2F gate:** Frames only arrive when the session is created with `audioSampleRate: 16000`
+> AND the server has `ENABLE_A2F=true`. Without both conditions the worker A2F pipeline is
+> skipped and no `botAnimation` events are emitted.
+
+```tsx
+"use client";
+
+import { useEffect, useRef } from 'react';
+import { EstuaryClient } from '@estuary-ai/sdk';
+import { useAnimationStream } from '@estuary-ai/sdk/react';
+
+export function LipsyncHarness() {
+  const clientRef = useRef<EstuaryClient | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const utteranceStartRef = useRef<number>(0);
+
+  // NOTE: enableAnimation=true requires audioSampleRate=16000 on the client AND
+  // ENABLE_A2F=true on the server. Otherwise the worker A2F gate will not fire.
+  useEffect(() => {
+    const client = new EstuaryClient({
+      serverUrl: 'https://api.estuary-ai.com',
+      apiKey: 'est_...',
+      characterId: 'your-character-id',
+      playerId: 'user-123',
+      audioSampleRate: 16000,   // required for the A2F worker gate
+      enableAnimation: true,    // propagates enable_animation flag to gateway
+    });
+    clientRef.current = client;
+    audioCtxRef.current = new AudioContext();
+
+    client.on('audioPlaybackStarted', () => {
+      // AudioContext.currentTime is an ABSOLUTE monotonic clock.
+      // Capture utterance start so getClock returns utterance-relative seconds.
+      utteranceStartRef.current = audioCtxRef.current!.currentTime;
+    });
+
+    client.connect();
+    return () => { client.disconnect(); };
+  }, []);
+
+  // getClock: utterance-relative playback position in seconds.
+  // For LiveKit transport, replace with: () => livekitAudioElement.currentTime
+  // (HTMLAudioElement.currentTime is already utterance-relative — resets per track)
+  const getClock = () =>
+    (audioCtxRef.current?.currentTime ?? 0) - utteranceStartRef.current;
+
+  const { bufferRef, currentMessageId, framesReceived, healthStatus } =
+    useAnimationStream({ client: clientRef.current!, getClock });
+
+  // Render-loop: look up the interpolation pair on every animation frame.
+  // bufferRef.current is stable — reading it does NOT trigger React re-renders.
+  useEffect(() => {
+    let rafId = 0;
+    const loop = () => {
+      const { prev, next, alpha } = bufferRef.current.pairAt(getClock());
+      // Apply prev/next/alpha to blendshape morph targets here (Phase 3 territory).
+      if (prev || next) {
+        // e.g. applyMorphTargets(prev, next, alpha);
+        console.debug({ alpha, prevSeq: prev?.sequence, nextSeq: next?.sequence });
+      }
+      rafId = requestAnimationFrame(loop);
+    };
+    rafId = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(rafId);
+  }, [bufferRef, getClock]);
+
+  return (
+    <div>
+      <p>Status: {healthStatus}</p>
+      <p>Current message: {currentMessageId ?? '—'}</p>
+      <p>Frames received: {framesReceived}</p>
+    </div>
+  );
+}
+```
+
 ## Events
 
 ```typescript
@@ -298,6 +378,15 @@ import type {
 } from '@estuary-ai/sdk';
 ```
 
+### Sub-path exports
+
+The React hook ships under a sub-path export to keep the core package React-free for non-React consumers:
+
+```typescript
+import { useAnimationStream } from '@estuary-ai/sdk/react';
+import type { UseAnimationStreamOptions, UseAnimationStreamReturn, AnimationHealthStatus } from '@estuary-ai/sdk/react';
+```
+
 ## React / Next.js
 
 The SDK uses browser APIs, so it must be used in client components. In Next.js App Router:
@@ -336,6 +425,7 @@ If using `next/dynamic` with `ssr: false`, the importing page must also be a cli
 
 - Node.js 18+ or modern browser
 - Estuary account with API key and Character ID
+- `useAnimationStream` requires React 18+ or 19+ as a peer dependency; the core SDK has no React dependency
 
 ## Documentation
 
