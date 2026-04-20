@@ -13,6 +13,8 @@ export interface EstuaryConfig {
   playerId: string;
   /** Audio sample rate in Hz (default: 16000) */
   audioSampleRate?: number;
+  /** Opt in to A2F bot_animation events (requires global ENABLE_A2F=true on the backend; also requires audioSampleRate=16000 for the worker A2F gate to fire). Default: false */
+  enableAnimation?: boolean;
   /** Auto-reconnect on disconnect (default: true) */
   autoReconnect?: boolean;
   /** Max reconnect attempts (default: 5) */
@@ -71,6 +73,18 @@ export interface WireBotVoice {
   chunk_index: number;
   is_final?: boolean;
   is_livekit?: boolean;
+}
+
+// Wire envelope from worker._publish_bot_animation (worker.py:232-247). The Socket.IO payload is the `data` sub-object.
+/** @internal */
+export interface WireBotAnimation {
+  message_id: string;
+  sequence: number;
+  time_code_sec: number;
+  fps: number;
+  weights: Record<string, number>;
+  emit_epoch_ms: number;
+  is_final: boolean;
 }
 
 /** @internal */
@@ -144,6 +158,16 @@ export interface BotVoice {
   chunkIndex: number;
   isFinal?: boolean;
   isLivekit?: boolean;
+}
+
+export interface BotAnimation {
+  messageId: string;
+  sequence: number;
+  timeCodeSec: number;
+  fps: number;
+  weights: Record<string, number>;
+  emitEpochMs: number;
+  isFinal: boolean;
 }
 
 export interface SttResponse {
@@ -244,6 +268,19 @@ export function toBotVoice(wire: WireBotVoice): BotVoice {
 }
 
 /** @internal */
+export function toBotAnimation(wire: WireBotAnimation): BotAnimation {
+  return {
+    messageId: wire.message_id,
+    sequence: wire.sequence,
+    timeCodeSec: wire.time_code_sec,
+    fps: wire.fps,
+    weights: wire.weights,
+    emitEpochMs: wire.emit_epoch_ms,
+    isFinal: wire.is_final,
+  };
+}
+
+/** @internal */
 export function toSttResponse(wire: WireSttResponse): SttResponse {
   return {
     text: wire.text,
@@ -334,6 +371,7 @@ export type EstuaryEventMap = {
   connectionStateChanged: (state: ConnectionState) => void;
   botResponse: (response: BotResponse) => void;
   botVoice: (voice: BotVoice) => void;
+  botAnimation: (frame: BotAnimation) => void;
   sttResponse: (response: SttResponse) => void;
   interrupt: (data: InterruptData) => void;
   error: (error: Error) => void;
