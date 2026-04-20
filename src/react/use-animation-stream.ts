@@ -162,11 +162,28 @@ export function useAnimationStream(
   // `handleInterrupt` function; the cleanup removes exactly that instance, so
   // double-mount produces exactly one active listener per event.
   useEffect(() => {
+    // Tracks the most recently inserted frame's messageId so we can detect
+    // message-boundary transitions WITHOUT waiting for the React state update
+    // (which lands one render tick later — too slow to keep stale frames out).
+    let lastInsertedMessageId: string | null = null;
+
     const handleAnimation = (frame: BotAnimation): void => {
       // Terminator frames carry no blendshape data — silently discard.
       // (AnimationFrameBuffer.insert also guards, but filtering here avoids
       //  touching React state for terminators.)
       if (frame.isFinal || frame.sequence === -1) return;
+
+      // Clear buffer on message-id transition. Each utterance re-bases
+      // timeCodeSec to 0, so old-utterance frames mixed with new-utterance
+      // frames produce a sorted buffer where two messages' 0.025s frames
+      // interleave — pairAt() then returns nonsense pairs or forces the
+      // interpolation to bridge across utterance boundaries. Flushing
+      // guarantees the buffer contains only the current utterance's frames.
+      // Interrupts still go through handleInterrupt below (defense-in-depth).
+      if (lastInsertedMessageId !== null && lastInsertedMessageId !== frame.messageId) {
+        bufferRef.current.clear();
+      }
+      lastInsertedMessageId = frame.messageId;
 
       bufferRef.current.insert(frame);
       lastFrameAtRef.current = Date.now();
