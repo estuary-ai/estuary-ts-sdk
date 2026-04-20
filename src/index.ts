@@ -12,6 +12,7 @@ export type {
   CharacterInfo,
   BotResponse,
   BotVoice,
+  BotAnimation,
   SttResponse,
   InterruptData,
   QuotaExceededData,
@@ -38,6 +39,10 @@ export type {
 } from './types';
 
 export { ConnectionState } from './types';
+
+// Animation subsystem
+export { AnimationFrameBuffer } from './animation';
+export type { FramePair, AnimationFrameBufferOptions } from './animation';
 
 // Action parsing utilities
 export { parseActions } from './utils/action-parser';
