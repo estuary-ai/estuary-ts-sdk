@@ -27,4 +27,27 @@ export default defineConfig([
     treeshake: true,
     external: ['livekit-client'],
   },
+  // React sub-path — ESM (browser). React/ReactDOM externalized (peer dep).
+  {
+    entry: { react: 'src/react/index.ts' },
+    format: ['esm'],
+    platform: 'browser',
+    dts: true,
+    sourcemap: true,
+    splitting: false,
+    treeshake: true,
+    external: ['react', 'react-dom', '@estuary-ai/sdk'],
+    noExternal: ['socket.io-client', 'livekit-client'],
+  },
+  // React sub-path — CJS (Node.js). React/ReactDOM and livekit externalized.
+  {
+    entry: { react: 'src/react/index.ts' },
+    format: ['cjs'],
+    platform: 'node',
+    dts: true,
+    sourcemap: true,
+    splitting: false,
+    treeshake: true,
+    external: ['react', 'react-dom', 'livekit-client', '@estuary-ai/sdk'],
+  },
 ]);
