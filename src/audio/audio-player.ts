@@ -18,8 +18,18 @@ export class AudioPlayer {
   private _interruptedMessageId: string | null = null;
   private _drainTimer: ReturnType<typeof setTimeout> | null = null;
 
-  /** How long to wait for more chunks before declaring playback complete (ms) */
-  private static readonly DRAIN_DELAY_MS = 300;
+  /**
+   * How long to wait for more chunks before declaring playback complete (ms).
+   *
+   * Must be larger than the worst-case mid-utterance gap between backend audio
+   * chunks (MIN_AUDIO_CHUNK_BYTES = 200ms of audio + network + jitter). If set
+   * below that, a single slow chunk fires 'complete' mid-speech, the consumer
+   * resets per-utterance state (e.g. clock, animation buffers), and when the
+   * next chunk arrives we get a spurious 'started' + wrong-timebase frame lookup.
+   * 1500ms gives generous headroom on resource-constrained rigs (WSL2, shared
+   * GPU running a local A2F NIM) without visibly delaying end-of-turn UX.
+   */
+  private static readonly DRAIN_DELAY_MS = 1500;
 
   constructor(sampleRate: number, onEvent: (event: AudioPlaybackEvent) => void) {
     this.sampleRate = sampleRate;
