@@ -167,6 +167,31 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
     this.socketManager.emitEvent('audio_playback_complete', { message_id: messageId });
   }
 
+  /**
+   * Send the client's rest-pose quats so SARAH can compute retargeting deltas.
+   * REQUIRED for body animation. MUST be called once per session, AFTER `connect()`
+   * resolves and BEFORE the first sendText / startVoice / sayLine. The server-side
+   * worker waits up to 200 ms for this at SARAH session-open time; late arrivals
+   * are logged-and-ignored. See SDK_CONTRACT.md bind_pose for the canonical bone
+   * names and quaternion convention (xyzw, w >= 0).
+   */
+  sendBindPose(bones: Record<string, [number, number, number, number]>): void {
+    this.ensureConnected();
+    this.socketManager.emitEvent('bind_pose', { bones });
+  }
+
+  /**
+   * Per-frame user floor-projected head position (paper p_y) for SARAH dyadic
+   * conditioning. Coordinates are in meters in the agent's reference frame at
+   * session start (agent at origin, looking down +z; +x is the agent's right).
+   * Emit at ~30 Hz while voice is active. RPUSH'd onto sarah:user_stream:{session_id}
+   * by the gateway and forwarded to SARAH PCM_USER + USER_POS by the worker.
+   */
+  sendUserPos(x: number, y: number): void {
+    this.ensureConnected();
+    this.socketManager.emitEvent('user_pos', { x, y });
+  }
+
   // ─── Voice ───────────────────────────────────────────────────
 
   /** Start voice input (requests microphone permission) */
@@ -321,6 +346,7 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
     this.socketManager.on('botResponse', (response) => this.handleBotResponse(response));
     this.socketManager.on('botVoice', (voice) => this.handleBotVoice(voice));
     this.socketManager.on('botAnimation', (frame) => this.emit('botAnimation', frame));
+    this.socketManager.on('botPose', (frame) => this.emit('botPose', frame));
     this.socketManager.on('sttResponse', (response) => {
       this.maybeAutoInterrupt(response);
       this.emit('sttResponse', response);

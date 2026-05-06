@@ -15,6 +15,8 @@ export interface EstuaryConfig {
   audioSampleRate?: number;
   /** Opt in to A2F bot_animation events (requires global ENABLE_A2F=true on the backend; also requires audioSampleRate=16000 for the worker A2F gate to fire). Default: false */
   enableAnimation?: boolean;
+  /** Opt in to SARAH bot_pose events for full-body cospeech animation (52-bone SMPL-X canonical quat frames; 22 body + 30 finger). Requires the active character to have a SARAH inference provider provisioned AND audioSampleRate=16000 (HuBERT 16 kHz gate). Default: false. See SDK_CONTRACT.md §body_animation_stream. */
+  enableBodyAnimation?: boolean;
   /** Auto-reconnect on disconnect (default: true) */
   autoReconnect?: boolean;
   /** Max reconnect attempts (default: 5) */
@@ -85,6 +87,27 @@ export interface WireBotAnimation {
   weights: Record<string, number>;
   emit_epoch_ms: number;
   is_final: boolean;
+}
+
+// Wire envelope for bot_pose (SDK_CONTRACT.md §body_animation_stream).
+// Emitted by the gateway response_router after worker -> SARAH Triton.
+/** @internal */
+export interface WireBoneQuat {
+  name: string;
+  quat: [number, number, number, number]; // xyzw, right-handed, w >= 0
+}
+
+/** @internal */
+export interface WireBotPose {
+  message_id: string;
+  sequence: number; // 0-based; -1 on terminator
+  time_code_sec: number;
+  fps: number; // always 30 for v2.0
+  bones: WireBoneQuat[]; // 52 entries: 22 body + 30 finger; [] on terminator
+  hips_world: [number, number, number]; // SMPL-X canonical, meters
+  hips_local_to_floor: [number, number, number];
+  emit_epoch_ms: number;
+  is_final: boolean; // true only on terminator (sequence === -1)
 }
 
 /** @internal */
@@ -166,6 +189,32 @@ export interface BotAnimation {
   timeCodeSec: number;
   fps: number;
   weights: Record<string, number>;
+  emitEpochMs: number;
+  isFinal: boolean;
+}
+
+/** Single bone in a SARAH bot_pose frame. `quat` is xyzw float32, right-hand convention, w >= 0. */
+export interface BoneQuat {
+  name: string;
+  quat: [number, number, number, number];
+}
+
+/**
+ * SARAH cospeech body-motion frame (SDK_CONTRACT.md body_animation_stream).
+ * 52 bones: 22 body + 30 finger. Stable-prefix invariant: bones[0..22] is
+ * byte-identical to the legacy v10 22-bone wire so consumers without finger
+ * Live Link can keep iterating bones.slice(0, 22).
+ *
+ * Terminator chunk: sequence === -1, bones === [], isFinal === true. Do NOT render.
+ */
+export interface BotPose {
+  messageId: string;
+  sequence: number;
+  timeCodeSec: number;
+  fps: number;
+  bones: BoneQuat[];
+  hipsWorld: [number, number, number];
+  hipsLocalToFloor: [number, number, number];
   emitEpochMs: number;
   isFinal: boolean;
 }
@@ -282,6 +331,21 @@ export function toBotAnimation(wire: WireBotAnimation): BotAnimation {
     // Keys that are already camelCase are unchanged. This keeps consumers
     // naming-convention-agnostic.
     weights: normalizeBlendshapeKeys(wire.weights),
+    emitEpochMs: wire.emit_epoch_ms,
+    isFinal: wire.is_final,
+  };
+}
+
+/** @internal */
+export function toBotPose(wire: WireBotPose): BotPose {
+  return {
+    messageId: wire.message_id,
+    sequence: wire.sequence,
+    timeCodeSec: wire.time_code_sec,
+    fps: wire.fps,
+    bones: wire.bones,
+    hipsWorld: wire.hips_world,
+    hipsLocalToFloor: wire.hips_local_to_floor,
     emitEpochMs: wire.emit_epoch_ms,
     isFinal: wire.is_final,
   };
@@ -405,6 +469,8 @@ export type EstuaryEventMap = {
   botResponse: (response: BotResponse) => void;
   botVoice: (voice: BotVoice) => void;
   botAnimation: (frame: BotAnimation) => void;
+  /** SARAH cospeech body-motion frame (52-bone). Requires enableBodyAnimation: true and a SARAH-provisioned character. */
+  botPose: (frame: BotPose) => void;
   sttResponse: (response: SttResponse) => void;
   interrupt: (data: InterruptData) => void;
   error: (error: Error) => void;

@@ -13,6 +13,8 @@ export type {
   BotResponse,
   BotVoice,
   BotAnimation,
+  BotPose,
+  BoneQuat,
   SttResponse,
   InterruptData,
   QuotaExceededData,

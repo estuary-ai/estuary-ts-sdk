@@ -10,6 +10,7 @@ import {
   WireBotResponse,
   WireBotVoice,
   WireBotAnimation,
+  WireBotPose,
   WireSttResponse,
   WireInterruptData,
   WireQuotaExceededData,
@@ -22,6 +23,7 @@ import {
   toBotResponse,
   toBotVoice,
   toBotAnimation,
+  toBotPose,
   toSttResponse,
   toInterruptData,
   toQuotaExceededData,
@@ -92,6 +94,7 @@ export class SocketManager extends TypedEventEmitter<EstuaryEventMap> {
           player_id: this.config.playerId,
           audio_sample_rate: this.config.audioSampleRate ?? 24000,
           enable_animation: this.config.enableAnimation ?? false,
+          enable_body_animation: this.config.enableBodyAnimation ?? false,
           realtime_memory: this.config.realtimeMemory ?? false,
         };
 
@@ -192,6 +195,10 @@ export class SocketManager extends TypedEventEmitter<EstuaryEventMap> {
 
     this.socket.on('bot_animation', (data: WireBotAnimation) => {
       this.emit('botAnimation', toBotAnimation(data));
+    });
+
+    this.socket.on('bot_pose', (data: WireBotPose) => {
+      this.emit('botPose', toBotPose(data));
     });
 
     this.socket.on('stt_response', (data: WireSttResponse) => {
