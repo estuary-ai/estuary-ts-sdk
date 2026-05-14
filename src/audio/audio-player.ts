@@ -18,6 +18,30 @@ export class AudioPlayer {
   private _interruptedMessageId: string | null = null;
   private _drainTimer: ReturnType<typeof setTimeout> | null = null;
 
+  // ─── Per-message audio-clock tracking ──────────────────────────────
+  // Reports how long audio has ACTUALLY been playing through the graph
+  // for the current message. ctx.currentTime advances continuously
+  // (even during inter-chunk silence gaps), so we can't use a single
+  // anchor-and-elapsed approach: the previous "cap at total buffered
+  // duration" design failed because total buffered grows ahead of
+  // playback when a fresh burst arrives, producing a forward jump at
+  // burst resume = the spurious slot-N motion skip downstream.
+  //
+  // We accumulate played duration segment by segment instead:
+  //   - _msgPlayedTime: sum of buffer durations that have already
+  //     finished playing for this message (precise, sample-accurate
+  //     since we use the buffer's intrinsic duration).
+  //   - _msgCurrentSegmentStart: ctx.currentTime captured at every
+  //     source.start(), or null when nothing is playing (silence
+  //     between bursts; pre-first-chunk).
+  //
+  // getAudioElapsedForMessage returns _msgPlayedTime + (currently-
+  // playing offset). Pauses during silence; resumes from where it
+  // left off — no jump.
+  private _msgId: string | null = null;
+  private _msgPlayedTime = 0;
+  private _msgCurrentSegmentStart: number | null = null;
+
   /**
    * How long to wait for more chunks before declaring playback complete (ms).
    *
@@ -74,6 +98,16 @@ export class AudioPlayer {
     const buffer = ctx.createBuffer(1, float32.length, this.sampleRate);
     buffer.getChannelData(0).set(float32);
 
+    // New message — reset the played-time accumulator. Any in-flight
+    // source for the previous message has its onended fire-and-forget;
+    // the messageId check inside onended skips accumulating into the
+    // new message's clock so there's no cross-message contamination.
+    if (voice.messageId !== this._msgId) {
+      this._msgId = voice.messageId;
+      this._msgPlayedTime = 0;
+      this._msgCurrentSegmentStart = null;
+    }
+
     this.queue.push({ buffer, messageId: voice.messageId });
 
     // New data arrived — cancel any pending drain timeout so we don't
@@ -119,6 +153,27 @@ export class AudioPlayer {
     }
     this.isPlaying = false;
     this.currentMessageId = null;
+    this._msgId = null;
+    this._msgPlayedTime = 0;
+    this._msgCurrentSegmentStart = null;
+  }
+
+  /**
+   * Audio-clock elapsed time (seconds) for a specific message. Returns
+   * 0 if the message isn't the one currently being tracked. Pauses
+   * during inter-chunk silence (no source playing) and resumes from
+   * where it left off — no forward jump on burst resume. Consumers
+   * that need a "true audio playback time" instead of wall clock use
+   * this.
+   */
+  getAudioElapsedForMessage(messageId: string): number {
+    if (this._msgId !== messageId) return 0;
+    if (!this.audioContext) return 0;
+    let total = this._msgPlayedTime;
+    if (this._msgCurrentSegmentStart !== null) {
+      total += this.audioContext.currentTime - this._msgCurrentSegmentStart;
+    }
+    return Math.max(0, total);
   }
 
   dispose(): void {
@@ -223,8 +278,27 @@ export class AudioPlayer {
     source.connect(this.mediaStreamDest ?? ctx.destination);
     this.currentSource = source;
 
+    // Per-segment audio-clock anchor. ctx.currentTime is captured at
+    // every source.start() (not just the first chunk of a message) so
+    // getAudioElapsedForMessage can compute the currently-playing
+    // offset. Accumulated into _msgPlayedTime when the buffer ends.
+    const bufferDuration = buffer.duration;
+    if (messageId === this._msgId) {
+      this._msgCurrentSegmentStart = ctx.currentTime;
+    }
+
     source.onended = () => {
       if (this._isCleared) return;
+      // Accumulate this segment's duration into the running total, but
+      // only if the message hasn't been switched out from under us
+      // (interrupt + new utterance starting before this source ends).
+      // Using bufferDuration (the buffer's intrinsic length) rather
+      // than ctx.currentTime - segmentStart so the clock is precise to
+      // the sample and not subject to ctx clock resolution.
+      if (this._msgCurrentSegmentStart !== null && messageId === this._msgId) {
+        this._msgPlayedTime += bufferDuration;
+        this._msgCurrentSegmentStart = null;
+      }
       this.currentSource = null;
       this.playNext();
     };

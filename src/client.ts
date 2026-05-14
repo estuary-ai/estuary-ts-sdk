@@ -285,6 +285,22 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
     return this.voiceManager?.isMuted ?? false;
   }
 
+  /**
+   * Audio-clock elapsed time (seconds) for a specific bot message.
+   *
+   * Returns the actual amount of audio the user has heard for `messageId`,
+   * derived from `AudioContext.currentTime` and capped at cumulative
+   * buffered duration. Pauses during inter-chunk silence gaps. Consumers
+   * that must stay synchronized with audible playback (e.g. body-animation
+   * playhead) should use this instead of wall clock.
+   *
+   * Returns 0 if `messageId` isn't the currently-active message or audio
+   * hasn't started playing yet. WebSocket transport only.
+   */
+  getAudioPlaybackTime(messageId: string): number {
+    return this.audioPlayer?.getAudioElapsedForMessage(messageId) ?? 0;
+  }
+
   /** Whether mic suppression during playback is enabled */
   get suppressMicDuringPlayback(): boolean {
     return this.config.suppressMicDuringPlayback ?? false;
