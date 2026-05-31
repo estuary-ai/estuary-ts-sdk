@@ -29,9 +29,27 @@ export interface EstuaryConfig {
   suppressMicDuringPlayback?: boolean;
   /** Proactively interrupt bot audio when user starts speaking (default: true) */
   autoInterruptOnSpeech?: boolean;
+  /** Per-session client capability declaration. Tells the server what the device
+   *  can physically do (camera, microphone, speaker). When omitted, the server
+   *  defaults all fields to true for backward compatibility. Tools requiring a
+   *  capability are hidden from the LLM when that capability is false (e.g.
+   *  `request_camera_image` is suppressed when `camera: false`). */
+  capabilities?: SessionCapabilities;
 }
 
 export type VoiceTransport = 'websocket' | 'livekit' | 'auto';
+
+/** Per-session client capability declaration. Pass on `EstuaryConfig.capabilities`. */
+export interface SessionCapabilities {
+  /** Schema version. Defaults to "1" when omitted. */
+  version?: string;
+  /** Device has a camera the SDK can call `sendCameraImage()` against. */
+  camera?: boolean;
+  /** Device has a microphone usable for voice capture. */
+  microphone?: boolean;
+  /** Device has a speaker usable for TTS playback. */
+  speaker?: boolean;
+}
 
 // ─── Connection State ────────────────────────────────────────────
 

@@ -8,6 +8,7 @@ export { EstuaryError, ErrorCode } from './errors';
 export type {
   EstuaryConfig,
   VoiceTransport,
+  SessionCapabilities,
   SessionInfo,
   CharacterInfo,
   BotResponse,

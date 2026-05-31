@@ -67,6 +67,27 @@ describe('SocketManager', () => {
     expect(manager.state).toBe(ConnectionState.Connected);
   });
 
+  it('should include capabilities in authPayload when configured', async () => {
+    const managerWithCaps = new SocketManager(
+      { ...config, capabilities: { camera: false, microphone: true, speaker: true } },
+      new Logger(false),
+    );
+    const handlers: Record<string, (...args: unknown[]) => void> = {};
+    mockSocket.on.mockImplementation((event: string, handler: (...args: unknown[]) => void) => {
+      handlers[event] = handler;
+    });
+
+    managerWithCaps.connect().catch(() => {});
+    handlers['connect']();
+
+    expect(mockSocket.emit).toHaveBeenCalledWith(
+      'authenticate',
+      expect.objectContaining({
+        capabilities: { version: '1', camera: false, microphone: true, speaker: true },
+      }),
+    );
+  });
+
   it('should reject on auth_error', async () => {
     const handlers: Record<string, (...args: unknown[]) => void> = {};
     mockSocket.on.mockImplementation((event: string, handler: (...args: unknown[]) => void) => {

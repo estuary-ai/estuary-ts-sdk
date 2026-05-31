@@ -247,7 +247,32 @@ interface EstuaryConfig {
   realtimeMemory?: boolean;    // Enable real-time memory extraction events. Default: false
   suppressMicDuringPlayback?: boolean; // Mute mic while bot audio plays (software AEC). Default: false
   autoInterruptOnSpeech?: boolean;     // Interrupt bot audio when user speaks. Default: true
+  capabilities?: SessionCapabilities;  // Per-session device capability declaration
 }
+
+interface SessionCapabilities {
+  version?: string;     // Schema version, defaults to "1"
+  camera?: boolean;     // Device has a usable camera
+  microphone?: boolean; // Device has a usable microphone
+  speaker?: boolean;    // Device has a usable speaker
+}
+```
+
+### Capability Declaration
+
+Tell the server what the device can physically do. The server hides tools that require a missing capability — e.g. `request_camera_image` is suppressed when `camera: false`, so the LLM won't ask to see the camera on text-only clients.
+
+When `capabilities` is omitted, the server defaults every field to `true` for backward compatibility — existing clients keep working unchanged.
+
+```typescript
+const client = new EstuaryClient({
+  serverUrl, apiKey, characterId, playerId,
+  capabilities: {
+    camera: false,    // No camera on this client (e.g. share link, text-only widget)
+    microphone: true,
+    speaker: true,
+  },
+});
 ```
 
 ## Runtime Properties
