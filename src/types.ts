@@ -353,6 +353,48 @@ export interface CharacterAction {
   messageId: string;
 }
 
+// ─── Scripted Lines ──────────────────────────────────────────────
+
+/** A scripted line: plain text (uses the script's default textOnly) or an explicit override. */
+export type ScriptLine = string | { text: string; textOnly?: boolean };
+
+export interface ScriptOptions {
+  /** Default for plain-string lines: false = TTS audio (default), true = text-only. */
+  textOnly?: boolean;
+  /** Pause inserted after each line completes, in ms (default 0). */
+  lineGapMs?: number;
+  /** Begin speaking immediately on creation (default true). If false, call play(). */
+  autoStart?: boolean;
+  /** Repeat from the first line after the last (default false). */
+  loop?: boolean;
+  /** Force-advance a line if no completion signal arrives within this many ms (default 30000). */
+  lineTimeoutMs?: number;
+}
+
+export type ScriptEndReason = 'finished' | 'stopped' | 'disconnected' | 'interrupted';
+export type ScriptState = 'idle' | 'playing' | 'paused' | 'done';
+
+export interface ScriptLineStartedInfo {
+  index: number;
+  text: string;
+  messageId: string;
+}
+
+/** Handle returned by EstuaryClient.playScript() / sayLines(). */
+export interface ScriptController {
+  readonly length: number;
+  /** Index of the current / most-recently-started line (-1 before the first line starts). */
+  readonly index: number;
+  readonly state: ScriptState;
+  /** Resolves (never rejects) when the script ends, with the reason. Awaitable. */
+  readonly done: Promise<{ reason: ScriptEndReason }>;
+  play(): void;
+  pause(): void;
+  resume(): void;
+  next(): void;
+  stop(): void;
+}
+
 // ─── Event Map ───────────────────────────────────────────────────
 
 export type EstuaryEventMap = {
@@ -378,7 +420,9 @@ export type EstuaryEventMap = {
   /** Bot audio level 0.0–1.0, emitted during playback for both transports. */
   botAudioLevel: (level: number) => void;
   memoryUpdated: (event: MemoryUpdatedEvent) => void;
-}
+  scriptLineStarted: (info: ScriptLineStartedInfo) => void;
+  scriptComplete: (info: { reason: ScriptEndReason }) => void;
+};
 
 // ─── Voice Manager Interface ─────────────────────────────────────
 
