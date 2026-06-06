@@ -1,6 +1,6 @@
 {
   "name": "@estuary-ai/sdk",
-  "version": "0.2.1",
+  "version": "0.5.0",
   "description": "Web SDK for the Estuary real-time AI conversation platform",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -37,6 +37,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "ESTUARY_E2E=1 vitest run tests/e2e",
     "lint": "eslint src/",
     "format": "prettier --write src/ tests/",
     "validate:golden": "node tests/validate-golden-fixture.mjs"

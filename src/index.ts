@@ -8,6 +8,7 @@ export { EstuaryError, ErrorCode } from './errors';
 export type {
   EstuaryConfig,
   VoiceTransport,
+  SessionCapabilities,
   SessionInfo,
   CharacterInfo,
   BotResponse,
@@ -21,6 +22,12 @@ export type {
   LiveKitTokenResponse,
   CameraCaptureRequest,
   CharacterAction,
+  ScriptLine,
+  ScriptOptions,
+  ScriptController,
+  ScriptEndReason,
+  ScriptState,
+  ScriptLineStartedInfo,
   EstuaryEventMap,
   VoiceManager,
   MemoryListOptions,
@@ -38,6 +45,7 @@ export type {
   CoreFactsResponse,
   MemoryData,
   MemoryUpdatedEvent,
+  ShareOpenResponse,
 } from './types';
 
 export { ConnectionState } from './types';

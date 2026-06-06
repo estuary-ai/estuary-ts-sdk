@@ -46,6 +46,37 @@ client.sendText('What do you remember about me?');
 client.sendText('Just respond in text', true); // textOnly mode
 ```
 
+### Scripted Lines
+
+Make the character speak exact, prewritten lines (straight to TTS, skipping the LLM):
+
+```typescript
+client.sayLine('Welcome back, traveler.');          // TTS audio
+client.sayLine('System: connection restored.', true); // text only, no audio
+```
+
+For a sequence, use `playScript()` — it paces the lines so each finishes before the next is
+sent. (`say_line` interrupts any in-progress speech, so firing several at once would make each
+line cut off the previous one.)
+
+```typescript
+const script = client.playScript(
+  ['Welcome to my shop, traveler!', 'I have wares, if you have coin.', 'Come back anytime.'],
+  { textOnly: false, lineGapMs: 250 },
+);
+
+client.on('scriptLineStarted', ({ index, text }) => console.log(`line ${index}: ${text}`));
+await script.done; // resolves when all lines have been spoken
+
+script.pause();
+script.resume();
+script.next(); // skip ahead
+script.stop(); // halt + interrupt
+```
+
+`sayLines(lines, opts)` is a convenience alias of `playScript(lines, opts)`. Lines may be plain
+strings or per-line overrides: `{ text: '(a silent stage direction)', textOnly: true }`.
+
 ### Voice (WebSocket)
 
 ```typescript
@@ -262,6 +293,10 @@ client.on('interrupt', (data) => { /* response interrupted */ });
 client.on('characterAction', (action) => { /* parsed action from bot response */ });
 client.on('cameraCaptureRequest', (request) => { /* server requests a camera image */ });
 
+// Scripted lines (playScript / sayLines)
+client.on('scriptLineStarted', ({ index, text, messageId }) => { /* a scripted line began */ });
+client.on('scriptComplete', ({ reason }) => { /* 'finished' | 'stopped' | 'disconnected' | 'interrupted' */ });
+
 // Voice
 client.on('voiceStarted', () => { /* voice session began */ });
 client.on('voiceStopped', () => { /* voice session ended */ });
@@ -327,7 +362,32 @@ interface EstuaryConfig {
   realtimeMemory?: boolean;    // Enable real-time memory extraction events. Default: false
   suppressMicDuringPlayback?: boolean; // Mute mic while bot audio plays (software AEC). Default: false
   autoInterruptOnSpeech?: boolean;     // Interrupt bot audio when user speaks. Default: true
+  capabilities?: SessionCapabilities;  // Per-session device capability declaration
 }
+
+interface SessionCapabilities {
+  version?: string;     // Schema version, defaults to "1"
+  camera?: boolean;     // Device has a usable camera
+  microphone?: boolean; // Device has a usable microphone
+  speaker?: boolean;    // Device has a usable speaker
+}
+```
+
+### Capability Declaration
+
+Tell the server what the device can physically do. The server hides tools that require a missing capability — e.g. `request_camera_image` is suppressed when `camera: false`, so the LLM won't ask to see the camera on text-only clients.
+
+When `capabilities` is omitted, the server defaults every field to `true` for backward compatibility — existing clients keep working unchanged.
+
+```typescript
+const client = new EstuaryClient({
+  serverUrl, apiKey, characterId, playerId,
+  capabilities: {
+    camera: false,    // No camera on this client (e.g. share link, text-only widget)
+    microphone: true,
+    speaker: true,
+  },
+});
 ```
 
 ## Runtime Properties

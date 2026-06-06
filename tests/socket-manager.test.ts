@@ -53,6 +53,7 @@ describe('SocketManager', () => {
       player_id: 'player-456',
       audio_sample_rate: 24000,
       enable_animation: false,
+      enable_body_animation: false,
       realtime_memory: false,
     });
 
@@ -66,6 +67,27 @@ describe('SocketManager', () => {
     const session = await connectPromise;
     expect(session.sessionId).toBe('sess-1');
     expect(manager.state).toBe(ConnectionState.Connected);
+  });
+
+  it('should include capabilities in authPayload when configured', async () => {
+    const managerWithCaps = new SocketManager(
+      { ...config, capabilities: { camera: false, microphone: true, speaker: true } },
+      new Logger(false),
+    );
+    const handlers: Record<string, (...args: unknown[]) => void> = {};
+    mockSocket.on.mockImplementation((event: string, handler: (...args: unknown[]) => void) => {
+      handlers[event] = handler;
+    });
+
+    managerWithCaps.connect().catch(() => {});
+    handlers['connect']();
+
+    expect(mockSocket.emit).toHaveBeenCalledWith(
+      'authenticate',
+      expect.objectContaining({
+        capabilities: { version: '1', camera: false, microphone: true, speaker: true },
+      }),
+    );
   });
 
   it('should reject on auth_error', async () => {

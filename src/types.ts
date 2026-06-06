@@ -33,9 +33,27 @@ export interface EstuaryConfig {
   suppressMicDuringPlayback?: boolean;
   /** Proactively interrupt bot audio when user starts speaking (default: true) */
   autoInterruptOnSpeech?: boolean;
+  /** Per-session client capability declaration. Tells the server what the device
+   *  can physically do (camera, microphone, speaker). When omitted, the server
+   *  defaults all fields to true for backward compatibility. Tools requiring a
+   *  capability are hidden from the LLM when that capability is false (e.g.
+   *  `request_camera_image` is suppressed when `camera: false`). */
+  capabilities?: SessionCapabilities;
 }
 
 export type VoiceTransport = 'websocket' | 'livekit' | 'auto';
+
+/** Per-session client capability declaration. Pass on `EstuaryConfig.capabilities`. */
+export interface SessionCapabilities {
+  /** Schema version. Defaults to "1" when omitted. */
+  version?: string;
+  /** Device has a camera the SDK can call `sendCameraImage()` against. */
+  camera?: boolean;
+  /** Device has a microphone usable for voice capture. */
+  microphone?: boolean;
+  /** Device has a speaker usable for TTS playback. */
+  speaker?: boolean;
+}
 
 // ─── Connection State ────────────────────────────────────────────
 
@@ -448,6 +466,16 @@ export interface CharacterInfo {
   sourceImageUrl: string | null;
 }
 
+// ─── Share Types ────────────────────────────────────────────────
+
+export interface ShareOpenResponse {
+  sessionToken: string;
+  characterId: string;
+  playerId: string;
+  serverUrl: string;
+  character: CharacterInfo & { personality?: string | null };
+}
+
 // ─── Character Actions ───────────────────────────────────────────
 
 export interface CharacterAction {
@@ -457,6 +485,48 @@ export interface CharacterAction {
   params: Record<string, string>;
   /** Message ID of the bot response that contained this action */
   messageId: string;
+}
+
+// ─── Scripted Lines ──────────────────────────────────────────────
+
+/** A scripted line: plain text (uses the script's default textOnly) or an explicit override. */
+export type ScriptLine = string | { text: string; textOnly?: boolean };
+
+export interface ScriptOptions {
+  /** Default for plain-string lines: false = TTS audio (default), true = text-only. */
+  textOnly?: boolean;
+  /** Pause inserted after each line completes, in ms (default 0). */
+  lineGapMs?: number;
+  /** Begin speaking immediately on creation (default true). If false, call play(). */
+  autoStart?: boolean;
+  /** Repeat from the first line after the last (default false). */
+  loop?: boolean;
+  /** Force-advance a line if no completion signal arrives within this many ms (default 30000). */
+  lineTimeoutMs?: number;
+}
+
+export type ScriptEndReason = 'finished' | 'stopped' | 'disconnected' | 'interrupted';
+export type ScriptState = 'idle' | 'playing' | 'paused' | 'done';
+
+export interface ScriptLineStartedInfo {
+  index: number;
+  text: string;
+  messageId: string;
+}
+
+/** Handle returned by EstuaryClient.playScript() / sayLines(). */
+export interface ScriptController {
+  readonly length: number;
+  /** Index of the current / most-recently-started line (-1 before the first line starts). */
+  readonly index: number;
+  readonly state: ScriptState;
+  /** Resolves (never rejects) when the script ends, with the reason. Awaitable. */
+  readonly done: Promise<{ reason: ScriptEndReason }>;
+  play(): void;
+  pause(): void;
+  resume(): void;
+  next(): void;
+  stop(): void;
 }
 
 // ─── Event Map ───────────────────────────────────────────────────
@@ -487,6 +557,8 @@ export type EstuaryEventMap = {
   /** Bot audio level 0.0–1.0, emitted during playback for both transports. */
   botAudioLevel: (level: number) => void;
   memoryUpdated: (event: MemoryUpdatedEvent) => void;
+  scriptLineStarted: (info: ScriptLineStartedInfo) => void;
+  scriptComplete: (info: { reason: ScriptEndReason }) => void;
 }
 
 // ─── Voice Manager Interface ─────────────────────────────────────

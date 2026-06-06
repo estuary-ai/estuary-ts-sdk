@@ -104,6 +104,10 @@ export class SocketManager extends TypedEventEmitter<EstuaryEventMap> {
           authPayload.api_key = this.config.apiKey;
         }
 
+        if (this.config.capabilities) {
+          authPayload.capabilities = { version: '1', ...this.config.capabilities };
+        }
+
         this.socket!.emit('authenticate', authPayload);
       };
 

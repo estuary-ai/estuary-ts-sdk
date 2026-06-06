@@ -13,12 +13,17 @@ import {
   ConnectionState,
   SessionInfo,
   CharacterInfo,
+  ShareOpenResponse,
   BotResponse,
   BotVoice,
   SttResponse,
   VoiceManager,
+  ScriptLine,
+  ScriptOptions,
+  ScriptController,
 } from './types';
 import { StreamingActionParser } from './utils/action-parser';
+import { ScriptPlayer, type ScriptHost } from './scripting/script-player';
 
 const DEFAULT_SAMPLE_RATE = 24000;
 const REST_UNAVAILABLE_MESSAGE =
@@ -37,6 +42,7 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
   private _hasAutoInterrupted = false;
   private _autoInterruptGraceTimer: ReturnType<typeof setTimeout> | null = null;
   private _isLiveKitSpeaking = false;
+  private _activeScript: ScriptPlayer | null = null;
 
   constructor(config: EstuaryConfig) {
     super();
@@ -78,6 +84,30 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
     return this._character.getCharacter(characterId ?? this.config.characterId);
   }
 
+  /**
+   * Open a permanent share link. Calls the backend's /open endpoint to mint a
+   * fresh session token and resolve character metadata (including modelUrl).
+   * Use the returned fields to construct an EstuaryClient with sessionToken auth.
+   */
+  static async openShare(
+    serverUrl: string,
+    shareId: string,
+  ): Promise<ShareOpenResponse> {
+    const url = `${serverUrl.replace(/\/+$/, '')}/api/v1/share/${shareId}/open`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '');
+      throw new EstuaryError(
+        ErrorCode.REST_ERROR,
+        `Share open failed (${res.status}): ${detail}`,
+      );
+    }
+    return res.json() as Promise<ShareOpenResponse>;
+  }
+
   /** Current session info (null if not connected) */
   get session(): SessionInfo | null {
     return this._sessionInfo;
@@ -104,6 +134,10 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
   /** Disconnect from the server */
   async disconnect(): Promise<void> {
     this.logger.info('Disconnecting...');
+    if (this._activeScript && this._activeScript.state !== 'done') {
+      this._activeScript.stop();
+    }
+    this._activeScript = null;
     if (this._autoInterruptGraceTimer) {
       clearTimeout(this._autoInterruptGraceTimer);
       this._autoInterruptGraceTimer = null;
@@ -126,6 +160,63 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
     if (!text?.trim()) return;
     this.ensureConnected();
     this.socketManager.emitEvent('say_line', { text, text_only: textOnly });
+  }
+
+  /**
+   * Script a sequence of prewritten lines. Lines are paced so each finishes before the next
+   * is sent — required because say_line interrupts any in-progress response server-side, so
+   * unpaced lines would stomp each other. Returns a controller (play/pause/resume/next/stop +
+   * an awaitable `done`). Starting a new script stops any currently-active one.
+   */
+  playScript(lines: ScriptLine[], opts?: ScriptOptions): ScriptController {
+    this.ensureConnected();
+    if (this._activeScript && this._activeScript.state !== 'done') {
+      this._activeScript.stop();
+    }
+    const player = new ScriptPlayer(this.createScriptHost(), lines, opts);
+    this._activeScript = player;
+    return player;
+  }
+
+  /** Convenience alias of playScript() for fire-and-forget scripted sequences. */
+  sayLines(lines: ScriptLine[], opts?: ScriptOptions): ScriptController {
+    return this.playScript(lines, opts);
+  }
+
+  private createScriptHost(): ScriptHost {
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    const self = this;
+    return {
+      sayLine(text, textOnly) {
+        self.sayLine(text, textOnly);
+      },
+      interrupt() {
+        self.interrupt();
+      },
+      on(event, listener) {
+        self.on(event, listener);
+        return self;
+      },
+      off(event, listener) {
+        self.off(event, listener);
+        return self;
+      },
+      get isConnected() {
+        return self.isConnected;
+      },
+      get willPlayScriptedAudio() {
+        return self.audioPlayer != null;
+      },
+      emitScriptLineStarted(info) {
+        self.emit('scriptLineStarted', info);
+      },
+      emitScriptComplete(info) {
+        self.emit('scriptComplete', info);
+      },
+      log(msg) {
+        self.logger.debug(msg);
+      },
+    };
   }
 
   /** Interrupt the current bot response */
