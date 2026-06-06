@@ -19,7 +19,12 @@ async function connect(client: EstuaryClient, handlers: Handlers): Promise<void>
   });
   const p = client.connect();
   handlers['connect']();
-  handlers['session_info']({ session_id: 's', conversation_id: 'c', character_id: 'ch', player_id: 'p' });
+  handlers['session_info']({
+    session_id: 's',
+    conversation_id: 'c',
+    character_id: 'ch',
+    player_id: 'p',
+  });
   await p;
 }
 
@@ -122,5 +127,23 @@ describe('EstuaryClient scripting', () => {
     await Promise.resolve();
     expect(emittedSayLines().some((s) => s.text === 'c')).toBe(true);
     second.stop();
+  });
+
+  it('emits the scriptComplete event on the client (not just the done promise)', async () => {
+    await connect(client, handlers);
+    const completes: Array<{ reason: string }> = [];
+    client.on('scriptComplete', (i) => completes.push(i));
+    const script = client.playScript(['hello']);
+    await Promise.resolve();
+    handlers['bot_response']({
+      text: 'hello',
+      is_final: true,
+      partial: '',
+      message_id: 'm1',
+      chunk_index: 0,
+      is_interjection: false,
+    });
+    await script.done;
+    expect(completes).toEqual([{ reason: 'finished' }]);
   });
 });

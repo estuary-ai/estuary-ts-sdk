@@ -206,4 +206,94 @@ describe('ScriptPlayer', () => {
     expect(p.state).toBe('playing');
     p.stop();
   });
+
+  // ─── regression: next()/stop() called BEFORE a line is acked ──────────────
+
+  it('next() before ack on a text-only line swallows the stale response (no mis-ack)', async () => {
+    const p = new ScriptPlayer(host, [
+      { text: 'a', textOnly: true },
+      { text: 'b', textOnly: true },
+    ]);
+    await flush();
+    expect(host.said).toEqual([{ text: 'a', textOnly: true }]);
+
+    p.next(); // skip 'a' before it is acked
+    expect(host.said.map((s) => s.text)).toEqual(['a', 'b']);
+
+    // The skipped line 'a' still emits its immediate text-only bot_response. It must NOT be
+    // treated as the ack for 'b' (which would emit a wrong-messageId scriptLineStarted and
+    // prematurely finish the script).
+    host.fire('botResponse', botResponse({ messageId: 'm1', isFinal: true }));
+    expect(host.started).toEqual([]); // not acked by the stale response
+    expect(p.state).not.toBe('done');
+
+    // 'b' real response acks + completes it correctly
+    host.fire('botResponse', botResponse({ messageId: 'm2', isFinal: true }));
+    expect(host.started).toEqual([{ index: 1, text: 'b', messageId: 'm2' }]);
+    await expect(p.done).resolves.toEqual({ reason: 'finished' });
+  });
+
+  it('next() before ack on a TTS line does not stall (audio path)', async () => {
+    host.willPlayScriptedAudio = true;
+    const p = new ScriptPlayer(host, ['a', 'b']);
+    await flush();
+    p.next(); // skip 'a' before ack; 'a' is TTS so no stray bot_response is expected
+    expect(host.said.map((s) => s.text)).toEqual(['a', 'b']);
+
+    // 'b' acks then completes via its own audioPlaybackComplete — must not be poisoned
+    host.fire('botResponse', botResponse({ messageId: 'm2', isFinal: true }));
+    expect(host.started).toEqual([{ index: 1, text: 'b', messageId: 'm2' }]);
+    expect(host.said.length).toBe(2); // not advanced by the botResponse (audio path)
+    host.fire('audioPlaybackComplete', 'm2');
+    await expect(p.done).resolves.toEqual({ reason: 'finished' });
+  });
+
+  it('next() while paused skips the pause and advances', async () => {
+    const p = new ScriptPlayer(host, ['a', 'b', 'c']);
+    await flush();
+    p.pause();
+    host.fire('botResponse', botResponse({ messageId: 'm1', isFinal: true }));
+    expect(p.state).toBe('paused');
+    expect(host.said.length).toBe(1);
+
+    p.next(); // should skip the pause and advance to 'b'
+    expect(p.state).toBe('playing');
+    expect(host.said.map((s) => s.text)).toEqual(['a', 'b']);
+
+    // selfInterruptPending must NOT have leaked: a genuine external interrupt still ends it
+    host.fire('botResponse', botResponse({ messageId: 'm2', isFinal: false })); // ack 'b'
+    host.fire('interrupt', { messageId: 'm2' } as InterruptData);
+    await expect(p.done).resolves.toEqual({ reason: 'interrupted' });
+  });
+
+  it('ignores audioPlaybackComplete when willPlayScriptedAudio=false (no double-advance)', async () => {
+    host.willPlayScriptedAudio = false;
+    new ScriptPlayer(host, ['a', 'b']); // TTS lines, but SDK is not playing audio
+    await flush();
+    host.fire('botResponse', botResponse({ messageId: 'm1', isFinal: true })); // completes 'a'
+    expect(host.said.length).toBe(2);
+    host.fire('audioPlaybackComplete', 'm1'); // stray — must be ignored
+    expect(host.said.length).toBe(2); // no double-advance
+  });
+
+  it('next() from idle starts playback', async () => {
+    const p = new ScriptPlayer(host, ['a', 'b'], { autoStart: false });
+    expect(p.state).toBe('idle');
+    expect(host.said).toEqual([]);
+    p.next();
+    expect(p.state).toBe('playing');
+    expect(host.said.map((s) => s.text)).toEqual(['a']);
+    p.stop();
+  });
+
+  it('stop() during the inter-line gap clears the pending timer', async () => {
+    const p = new ScriptPlayer(host, ['a', 'b'], { lineGapMs: 500 });
+    await flush();
+    host.fire('botResponse', botResponse({ messageId: 'm1', isFinal: true })); // completes 'a', enters gap
+    expect(host.said.length).toBe(1);
+    p.stop();
+    expect(host.completed).toEqual([{ reason: 'stopped' }]);
+    vi.advanceTimersByTime(1000); // the gap timer must not fire after stop
+    expect(host.said.length).toBe(1); // 'b' never issued
+  });
 });

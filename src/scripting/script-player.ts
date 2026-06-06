@@ -54,6 +54,10 @@ export class ScriptPlayer implements ScriptController {
   private readonly retiredIds = new Set<string>();
   private selfInterruptPending = false;
   private pauseRequested = false;
+  // Number of stray bot_responses still expected from text-only lines that were superseded
+  // (via next()/stop()) BEFORE they were acked. Their server messageId isn't known yet, so we
+  // can't retire them by id — instead we swallow that many fresh responses by arrival order.
+  private pendingStaleResponses = 0;
 
   private lineTimer: ReturnType<typeof setTimeout> | null = null;
   private gapTimer: ReturnType<typeof setTimeout> | null = null;
@@ -127,8 +131,13 @@ export class ScriptPlayer implements ScriptController {
       this.play();
       return;
     }
+    // When paused, the current line has already completed — advancing interrupts nothing.
+    // When playing, advancing supersedes (and interrupts) the in-flight line.
+    const expectInterrupt = this._state === 'playing';
+    this.pauseRequested = false;
+    this._state = 'playing';
     this.clearTimers();
-    this.markSuperseded();
+    this.supersedeCurrentLine(expectInterrupt);
     this.startNextLine();
   }
 
@@ -185,6 +194,14 @@ export class ScriptPlayer implements ScriptController {
     if (r.isInterjection) return;
 
     if (!this.lineAcked) {
+      // A line skipped before it was acked (next()/stop() in the window before its first
+      // bot_response) still emits one stray text-only response. By ordered delivery it arrives
+      // before the new line's response, so swallow it rather than mis-acking the new line.
+      if (this.pendingStaleResponses > 0) {
+        this.pendingStaleResponses--;
+        if (r.messageId) this.retiredIds.add(r.messageId);
+        return;
+      }
       this.lineAcked = true;
       this.currentMessageId = r.messageId ?? null;
       this.selfInterruptPending = false; // the new line is now flowing
@@ -248,9 +265,23 @@ export class ScriptPlayer implements ScriptController {
     this.finish('interrupted');
   }
 
-  private markSuperseded(): void {
-    if (this.currentMessageId) this.retiredIds.add(this.currentMessageId);
-    this.selfInterruptPending = true;
+  /**
+   * Retire the current line because we're moving off it.
+   * @param expectInterrupt true when the line is still in-flight (next()/stop() mid-line), so the
+   *   server will emit a self-induced `interrupt` we must not treat as external. false when the
+   *   line already completed (e.g. next() while paused), where no interrupt is coming.
+   */
+  private supersedeCurrentLine(expectInterrupt: boolean): void {
+    if (this.lineAcked && this.currentMessageId) {
+      // Known id — drop any further events for it.
+      this.retiredIds.add(this.currentMessageId);
+    } else if (expectInterrupt && this.lines[this._index]?.textOnly) {
+      // Skipped before ack: a text-only line still sends one immediate bot_response whose id we
+      // don't know yet. Expect to swallow it. (TTS lines interrupted before ack send no stray
+      // response, so nothing to swallow there.)
+      this.pendingStaleResponses++;
+    }
+    if (expectInterrupt) this.selfInterruptPending = true;
   }
 
   private clearTimers(): void {
