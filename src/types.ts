@@ -114,6 +114,13 @@ export interface WireQuotaExceededData {
 }
 
 /** @internal */
+export interface WireSessionTimeoutData {
+  reason: string;
+  idle_seconds: number;
+  timeout_seconds: number;
+}
+
+/** @internal */
 export interface WireLiveKitTokenResponse {
   token: string;
   url: string;
@@ -181,6 +188,18 @@ export interface QuotaExceededData {
   limit: number;
   remaining: number;
   tier: string;
+}
+
+/**
+ * Emitted when the server ends the session due to inactivity (no conversation
+ * activity for the server's idle timeout). The server disconnects the socket
+ * right after; the SDK does not auto-reconnect from this — call connect()
+ * again on explicit user intent to resume.
+ */
+export interface SessionTimeoutData {
+  reason: string;
+  idleSeconds: number;
+  timeoutSeconds: number;
 }
 
 export interface LiveKitTokenResponse {
@@ -286,6 +305,15 @@ export function toQuotaExceededData(wire: WireQuotaExceededData): QuotaExceededD
     limit: wire.limit,
     remaining: wire.remaining,
     tier: wire.tier,
+  };
+}
+
+/** @internal */
+export function toSessionTimeoutData(wire: WireSessionTimeoutData): SessionTimeoutData {
+  return {
+    reason: wire.reason,
+    idleSeconds: wire.idle_seconds,
+    timeoutSeconds: wire.timeout_seconds,
   };
 }
 
@@ -409,6 +437,7 @@ export type EstuaryEventMap = {
   error: (error: Error) => void;
   authError: (error: string) => void;
   quotaExceeded: (data: QuotaExceededData) => void;
+  sessionTimeout: (data: SessionTimeoutData) => void;
   cameraCaptureRequest: (request: CameraCaptureRequest) => void;
   characterAction: (action: CharacterAction) => void;
   voiceStarted: () => void;

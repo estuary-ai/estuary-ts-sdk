@@ -12,6 +12,7 @@ import {
   WireSttResponse,
   WireInterruptData,
   WireQuotaExceededData,
+  WireSessionTimeoutData,
   WireCameraCaptureRequest,
   WireLiveKitTokenResponse,
   WireMemoryUpdated,
@@ -23,6 +24,7 @@ import {
   toSttResponse,
   toInterruptData,
   toQuotaExceededData,
+  toSessionTimeoutData,
   toCameraCaptureRequest,
   toLiveKitTokenResponse,
   toMemoryUpdatedEvent,
@@ -36,6 +38,9 @@ export class SocketManager extends TypedEventEmitter<EstuaryEventMap> {
   private reconnectAttempt = 0;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private sessionInfo: SessionInfo | null = null;
+  // Set by session_timeout: suppresses the auto-reconnect for the
+  // server-initiated disconnect that immediately follows it.
+  private serverEndedSession = false;
 
   constructor(config: EstuaryConfig, logger: Logger) {
     super();
@@ -70,6 +75,7 @@ export class SocketManager extends TypedEventEmitter<EstuaryEventMap> {
 
       this.setConnectionState(ConnectionState.Connecting);
       this.reconnectAttempt = 0;
+      this.serverEndedSession = false; // explicit connect overrides a prior idle timeout
 
       const url = `${this.config.serverUrl}/sdk`;
       this.logger.debug('Connecting to', url);
@@ -203,6 +209,15 @@ export class SocketManager extends TypedEventEmitter<EstuaryEventMap> {
       this.emit('quotaExceeded', toQuotaExceededData(data));
     });
 
+    this.socket.on('session_timeout', (data: WireSessionTimeoutData) => {
+      // Server-side idle reap (SDK_CONTRACT.md): the server disconnects this
+      // socket right after. Flag it so handleDisconnect doesn't auto-reconnect —
+      // re-authenticating would re-establish billed voice resources (LiveKit
+      // pre-join, Deepgram) with nobody talking, in a loop.
+      this.serverEndedSession = true;
+      this.emit('sessionTimeout', toSessionTimeoutData(data));
+    });
+
     this.socket.on('camera_capture', (data: WireCameraCaptureRequest) => {
       this.emit('cameraCaptureRequest', toCameraCaptureRequest(data));
     });
@@ -237,6 +252,17 @@ export class SocketManager extends TypedEventEmitter<EstuaryEventMap> {
     this.sessionInfo = null;
     this.setConnectionState(ConnectionState.Disconnected);
     this.emit('disconnected', reason);
+
+    // Server-initiated disconnects (idle-session timeout, quota kick) must
+    // NOT auto-reconnect — this mirrors socket.io-client's own
+    // 'io server disconnect' semantics, which we bypass by managing
+    // reconnection ourselves. Resuming requires an explicit connect().
+    const serverEnded = this.serverEndedSession || reason === 'io server disconnect';
+    this.serverEndedSession = false;
+    if (serverEnded) {
+      this.logger.info('Server ended the session — not auto-reconnecting');
+      return;
+    }
 
     const autoReconnect = this.config.autoReconnect ?? true;
     const maxAttempts = this.config.maxReconnectAttempts ?? 5;

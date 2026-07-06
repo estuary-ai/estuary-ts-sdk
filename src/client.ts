@@ -427,6 +427,7 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
     this.socketManager.on('error', (error) => this.emit('error', error));
     this.socketManager.on('authError', (error) => this.emit('authError', error));
     this.socketManager.on('quotaExceeded', (data) => this.emit('quotaExceeded', data));
+    this.socketManager.on('sessionTimeout', (data) => this.emit('sessionTimeout', data));
     this.socketManager.on('cameraCaptureRequest', (request) => this.emit('cameraCaptureRequest', request));
     this.socketManager.on('livekitConnected', (room) => this.emit('livekitConnected', room));
     this.socketManager.on('livekitDisconnected', () => this.emit('livekitDisconnected'));
