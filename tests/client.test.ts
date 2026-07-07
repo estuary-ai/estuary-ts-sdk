@@ -59,6 +59,44 @@ describe('EstuaryClient', () => {
     expect(client.isVoiceActive).toBe(false);
   });
 
+  it('releases voice resources when the server ends the session', async () => {
+    const handlers: Record<string, (...args: unknown[]) => void> = {};
+    mockSocket.on.mockImplementation((event: string, handler: (...args: unknown[]) => void) => {
+      handlers[event] = handler;
+    });
+
+    const connectPromise = client.connect();
+    handlers['connect']();
+    handlers['session_info']({
+      session_id: 'sess-1',
+      conversation_id: 'conv-1',
+      character_id: 'char-123',
+      player_id: 'player-456',
+    });
+    await connectPromise;
+
+    // Simulate voice active when the idle reap hits (only voice sessions are reaped)
+    const fakeManager = {
+      isActive: true,
+      stop: vi.fn().mockResolvedValue(undefined),
+      dispose: vi.fn(),
+    };
+    (client as unknown as { voiceManager: unknown }).voiceManager = fakeManager;
+
+    const voiceStopped = vi.fn();
+    const sessionTimeout = vi.fn();
+    client.on('voiceStopped', voiceStopped);
+    client.on('sessionTimeout', sessionTimeout);
+
+    handlers['session_timeout']({ reason: 'inactivity', idle_seconds: 600, timeout_seconds: 600 });
+    await vi.waitFor(() => expect(fakeManager.dispose).toHaveBeenCalled());
+
+    expect(fakeManager.stop).toHaveBeenCalled();
+    expect(client.isVoiceActive).toBe(false);
+    expect(sessionTimeout).toHaveBeenCalled();
+    expect(voiceStopped).toHaveBeenCalled();
+  });
+
   it('should connect and forward events', async () => {
     const handlers: Record<string, (...args: unknown[]) => void> = {};
     mockSocket.on.mockImplementation((event: string, handler: (...args: unknown[]) => void) => {

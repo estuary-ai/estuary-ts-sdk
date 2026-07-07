@@ -338,6 +338,27 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
     }
   }
 
+  /**
+   * Tear down voice state without requiring an active manager — used when the
+   * server ends the session out from under us. Unlike stopVoice(), this also
+   * disposes a manager whose transport already died (LiveKit room deleted →
+   * isActive is false but the local mic track was never released).
+   */
+  private async releaseVoice(): Promise<void> {
+    const manager = this.voiceManager;
+    this.voiceManager = null;
+    this._isLiveKitSpeaking = false;
+    this.audioPlayer?.clear();
+    if (!manager) return;
+    try {
+      if (manager.isActive) await manager.stop();
+    } catch {
+      // Server already tore the session down — continue local cleanup.
+    }
+    manager.dispose();
+    this.emit('voiceStopped');
+  }
+
   /** Toggle microphone mute */
   toggleMute(): void {
     if (!this.voiceManager?.isActive) {
@@ -427,7 +448,14 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
     this.socketManager.on('error', (error) => this.emit('error', error));
     this.socketManager.on('authError', (error) => this.emit('authError', error));
     this.socketManager.on('quotaExceeded', (data) => this.emit('quotaExceeded', data));
-    this.socketManager.on('sessionTimeout', (data) => this.emit('sessionTimeout', data));
+    this.socketManager.on('sessionTimeout', (data) => {
+      // The server ended the session (idle reap) and disconnects right after.
+      // Release voice resources now: a stale WebSocket manager stays isActive
+      // (mic hot, next startVoice throws VOICE_ALREADY_ACTIVE) and a dead
+      // LiveKit manager is never disposed. Resume = connect() + startVoice().
+      void this.releaseVoice();
+      this.emit('sessionTimeout', data);
+    });
     this.socketManager.on('cameraCaptureRequest', (request) => this.emit('cameraCaptureRequest', request));
     this.socketManager.on('livekitConnected', (room) => this.emit('livekitConnected', room));
     this.socketManager.on('livekitDisconnected', () => this.emit('livekitDisconnected'));

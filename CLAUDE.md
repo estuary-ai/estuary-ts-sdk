@@ -49,7 +49,7 @@ default_playback_sample_rate: 24000    # TTS audio generated at 24kHz by default
 | memory_push | Implemented | memoryUpdated event for real-time extraction notifications |
 | suppress_mic_during_playback | Implemented | Works across both WebSocket and LiveKit transports |
 | capabilities_declaration | Implemented | `EstuaryConfig.capabilities` → `authenticate` payload (SDK v0.4.0+). Server defaults all fields true when omitted. |
-| session_timeout | Implemented | Server idle-timeout (no conversation activity). Emitted as `sessionTimeout` (camelCase payload). The SDK self-manages reconnection (`reconnection: false`), so `handleDisconnect` now explicitly skips auto-reconnect for server-initiated disconnects (`session_timeout` flag or `'io server disconnect'` reason) — auto-reconnecting after an idle reap would re-establish billed voice resources in a loop. Resume = explicit `connect()` on user intent. |
+| session_timeout | Implemented | Server idle-timeout (no conversation activity). Emitted as `sessionTimeout` (camelCase payload). The SDK self-manages reconnection (`reconnection: false`), so `handleDisconnect` now explicitly skips auto-reconnect for server-initiated disconnects (`session_timeout` flag or `'io server disconnect'` reason) — auto-reconnecting after an idle reap would re-establish billed voice resources in a loop. Resume = explicit `connect()` on user intent. On `session_timeout` the client also releases voice resources (stops/disposes the voice manager — even one whose LiveKit room already died — clears the audio player, emits `voiceStopped`) so `connect()` + `startVoice()` resumes cleanly; without this a stale WebSocket manager keeps the mic hot and makes `startVoice()` throw VOICE_ALREADY_ACTIVE. |
 
 ## Architecture
 
