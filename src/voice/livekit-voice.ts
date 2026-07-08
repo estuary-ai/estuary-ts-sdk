@@ -249,17 +249,33 @@ export class LiveKitVoiceManager implements VoiceManager {
     this._isSuppressed = false;
   }
 
-  /** Mute/unmute the local audio track directly via MediaStreamTrack.enabled.
-   *  This avoids setMicrophoneEnabled() which publishes/unpublishes the track
-   *  through the LiveKit server and can fail with engine timeout errors. */
+  /** Apply the current mute/suppress state to the outgoing mic audio.
+   *  Two layers. First gate the raw MediaStreamTrack (synchronous, purely
+   *  local) so no audio leaves the device even if signaling stalls. Then
+   *  setMicrophoneEnabled() — in livekit-client v2 this mutes/unmutes the
+   *  existing publication (it does NOT unpublish) and signals the state to
+   *  the room, which is the authoritative mute the server sees. The raw
+   *  gate alone proved unreliable: with the flag flipped and the icon
+   *  showing muted, live audio still reached server-side STT. */
   private updateTrackEnabled(): void {
     if (!this.room) return;
     const enabled = !this._isMuted && !this._isSuppressed;
-    for (const [, publication] of this.room.localParticipant.audioTrackPublications) {
-      if (publication.track?.mediaStreamTrack) {
-        publication.track.mediaStreamTrack.enabled = enabled;
+
+    let gated = 0;
+    const publications = this.room.localParticipant.audioTrackPublications;
+    if (publications) {
+      for (const [, publication] of publications) {
+        if (publication.track?.mediaStreamTrack) {
+          publication.track.mediaStreamTrack.enabled = enabled;
+          gated++;
+        }
       }
     }
+    this.logger.debug(`Mic ${enabled ? 'enabled' : 'disabled'}: gated ${gated} local track(s)`);
+
+    this.room.localParticipant.setMicrophoneEnabled(enabled).catch((err: unknown) => {
+      this.logger.warn('setMicrophoneEnabled failed; relying on local track gate:', err);
+    });
   }
 
   // ─── Audio Level Polling (participant.audioLevel) ───────────────
