@@ -13,6 +13,7 @@ import {
   WireInterruptData,
   WireQuotaExceededData,
   WireSessionTimeoutData,
+  WireVoiceTimeoutData,
   WireCameraCaptureRequest,
   WireLiveKitTokenResponse,
   WireMemoryUpdated,
@@ -25,6 +26,7 @@ import {
   toInterruptData,
   toQuotaExceededData,
   toSessionTimeoutData,
+  toVoiceTimeoutData,
   toCameraCaptureRequest,
   toLiveKitTokenResponse,
   toMemoryUpdatedEvent,
@@ -216,6 +218,14 @@ export class SocketManager extends TypedEventEmitter<EstuaryEventMap> {
       // pre-join, Deepgram) with nobody talking, in a loop.
       this.serverEndedSession = true;
       this.emit('sessionTimeout', toSessionTimeoutData(data));
+    });
+
+    this.socket.on('voice_timeout', (data: WireVoiceTimeoutData) => {
+      // Voice-lane idle release (SDK_CONTRACT.md): the server released the
+      // call's voice resources (LiveKit room deleted, STT closed) but KEEPS
+      // this socket connected — no disconnect follows, so do NOT set
+      // serverEndedSession. Text chat continues uninterrupted.
+      this.emit('voiceTimeout', toVoiceTimeoutData(data));
     });
 
     this.socket.on('camera_capture', (data: WireCameraCaptureRequest) => {

@@ -36,7 +36,7 @@ default_playback_sample_rate: 24000    # TTS audio generated at 24kHz by default
 | say_line | Implemented | `sayLine(text, textOnly?)` emits `say_line` with `text_only` flag (TTS by default) |
 | scripted_lines | Implemented (TS-only extension) | `playScript()`/`sayLines()` sequencer paces lines so back-to-back `say_line` calls don't interrupt each other; emits `scriptLineStarted`/`scriptComplete`. Layered on the shared `say_line` event — not present in the other SDKs. |
 | voice_websocket | Implemented | WebSocketVoiceManager |
-| voice_livekit | Implemented | LiveKitVoiceManager (optional peer dep) |
+| voice_livekit | Implemented | LiveKitVoiceManager (optional peer dep). LiveKit activates only on `startVoice()` — nothing is touched at `connect()`. The `livekit_token` request at voice start doubles as the gateway's voice-intent signal: it launches the server's bot pre-join + STT pre-connect in the background (warm start), overlapping the mic-permission prompt and room connect. Do NOT switch to the embedded session_info token without also emitting `livekit_token` — that would silently downgrade every voice start to the cold join path (see SDK_CONTRACT.md voice_livekit → Resource allocation). |
 | interrupts | Implemented | interrupt() + interrupt event |
 | audio_playback_tracking | Implemented | AudioPlayer (WebSocket) + LiveKit metadata tracking |
 | vision_camera | Implemented | sendCameraImage() + cameraCaptureRequest event |
@@ -49,6 +49,7 @@ default_playback_sample_rate: 24000    # TTS audio generated at 24kHz by default
 | memory_push | Implemented | memoryUpdated event for real-time extraction notifications |
 | suppress_mic_during_playback | Implemented | Works across both WebSocket and LiveKit transports |
 | capabilities_declaration | Implemented | `EstuaryConfig.capabilities` → `authenticate` payload (SDK v0.4.0+). Server defaults all fields true when omitted. |
+| voice_timeout | Implemented | Voice-lane idle release (auto-mute illusion). Server released the call's voice resources (room deleted, STT closed) after no user speech, while the socket stays connected. SDK releases local voice (mic off, transport disposed, `voiceStopped` emitted) and re-emits `voiceTimeout` (camelCase payload). Unlike `session_timeout`, NO disconnect follows and no reconnect suppression is involved — text keeps working. Recommended app UX: keep the call UI open, show the mic as auto-muted, call `startVoice()` on unmute. |
 | session_timeout | Implemented | Server idle-timeout (no conversation activity). Emitted as `sessionTimeout` (camelCase payload). The SDK self-manages reconnection (`reconnection: false`), so `handleDisconnect` now explicitly skips auto-reconnect for server-initiated disconnects (`session_timeout` flag or `'io server disconnect'` reason) — auto-reconnecting after an idle reap would re-establish billed voice resources in a loop. Resume = explicit `connect()` on user intent. On `session_timeout` the client also releases voice resources (stops/disposes the voice manager — even one whose LiveKit room already died — clears the audio player, emits `voiceStopped`) so `connect()` + `startVoice()` resumes cleanly; without this a stale WebSocket manager keeps the mic hot and makes `startVoice()` throw VOICE_ALREADY_ACTIVE. |
 
 ## Architecture

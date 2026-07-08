@@ -456,6 +456,15 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
       void this.releaseVoice();
       this.emit('sessionTimeout', data);
     });
+    this.socketManager.on('voiceTimeout', (data) => {
+      // The server released the call's voice resources after voice inactivity
+      // (room already deleted server-side) while keeping the socket — text
+      // chat continues. Release local voice state (mic off, transport
+      // disposed; also emits voiceStopped). Apps can present this as an
+      // auto-muted microphone and call startVoice() when the user unmutes.
+      void this.releaseVoice();
+      this.emit('voiceTimeout', data);
+    });
     this.socketManager.on('cameraCaptureRequest', (request) => this.emit('cameraCaptureRequest', request));
     this.socketManager.on('livekitConnected', (room) => this.emit('livekitConnected', room));
     this.socketManager.on('livekitDisconnected', () => this.emit('livekitDisconnected'));

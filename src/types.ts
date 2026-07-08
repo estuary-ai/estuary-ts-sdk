@@ -121,6 +121,13 @@ export interface WireSessionTimeoutData {
 }
 
 /** @internal */
+export interface WireVoiceTimeoutData {
+  reason: string;
+  idle_seconds: number;
+  timeout_seconds: number;
+}
+
+/** @internal */
 export interface WireLiveKitTokenResponse {
   token: string;
   url: string;
@@ -197,6 +204,24 @@ export interface QuotaExceededData {
  * again on explicit user intent to resume.
  */
 export interface SessionTimeoutData {
+  reason: string;
+  idleSeconds: number;
+  timeoutSeconds: number;
+}
+
+/**
+ * Emitted when the server releases the CALL's voice resources after voice
+ * inactivity (no user speech for the server's voice-idle timeout) while the
+ * session itself stays connected — e.g. the user kept texting with a silent
+ * call open. The LiveKit room is already deleted server-side; the SDK has
+ * released the microphone and disposed the voice transport (voiceStopped is
+ * also emitted). The socket remains connected and text chat continues.
+ *
+ * Recommended UX: present this as an auto-muted microphone rather than a
+ * dropped call — keep the call UI open, show the mic as muted, and call
+ * startVoice() again when the user unmutes.
+ */
+export interface VoiceTimeoutData {
   reason: string;
   idleSeconds: number;
   timeoutSeconds: number;
@@ -310,6 +335,15 @@ export function toQuotaExceededData(wire: WireQuotaExceededData): QuotaExceededD
 
 /** @internal */
 export function toSessionTimeoutData(wire: WireSessionTimeoutData): SessionTimeoutData {
+  return {
+    reason: wire.reason,
+    idleSeconds: wire.idle_seconds,
+    timeoutSeconds: wire.timeout_seconds,
+  };
+}
+
+/** @internal */
+export function toVoiceTimeoutData(wire: WireVoiceTimeoutData): VoiceTimeoutData {
   return {
     reason: wire.reason,
     idleSeconds: wire.idle_seconds,
@@ -438,6 +472,7 @@ export type EstuaryEventMap = {
   authError: (error: string) => void;
   quotaExceeded: (data: QuotaExceededData) => void;
   sessionTimeout: (data: SessionTimeoutData) => void;
+  voiceTimeout: (data: VoiceTimeoutData) => void;
   cameraCaptureRequest: (request: CameraCaptureRequest) => void;
   characterAction: (action: CharacterAction) => void;
   voiceStarted: () => void;

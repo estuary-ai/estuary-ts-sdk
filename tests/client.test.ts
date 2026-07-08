@@ -97,6 +97,58 @@ describe('EstuaryClient', () => {
     expect(voiceStopped).toHaveBeenCalled();
   });
 
+  it('releases voice but keeps the connection on voice_timeout (auto-mute illusion)', async () => {
+    const handlers: Record<string, (...args: unknown[]) => void> = {};
+    mockSocket.on.mockImplementation((event: string, handler: (...args: unknown[]) => void) => {
+      handlers[event] = handler;
+    });
+
+    const connectPromise = client.connect();
+    handlers['connect']();
+    handlers['session_info']({
+      session_id: 'sess-1',
+      conversation_id: 'conv-1',
+      character_id: 'char-123',
+      player_id: 'player-456',
+    });
+    await connectPromise;
+
+    // A live call whose room the server just deleted for voice inactivity
+    const fakeManager = {
+      isActive: true,
+      stop: vi.fn().mockResolvedValue(undefined),
+      dispose: vi.fn(),
+    };
+    (client as unknown as { voiceManager: unknown }).voiceManager = fakeManager;
+
+    const voiceStopped = vi.fn();
+    const voiceTimeout = vi.fn();
+    client.on('voiceStopped', voiceStopped);
+    client.on('voiceTimeout', voiceTimeout);
+
+    handlers['voice_timeout']({
+      reason: 'voice_inactivity',
+      idle_seconds: 600,
+      timeout_seconds: 600,
+    });
+    await vi.waitFor(() => expect(fakeManager.dispose).toHaveBeenCalled());
+
+    // Mic released so the next startVoice() (the unmute path) works cleanly
+    expect(fakeManager.stop).toHaveBeenCalled();
+    expect(client.isVoiceActive).toBe(false);
+    expect(voiceStopped).toHaveBeenCalled();
+    expect(voiceTimeout).toHaveBeenCalledWith({
+      reason: 'voice_inactivity',
+      idleSeconds: 600,
+      timeoutSeconds: 600,
+    });
+
+    // Unlike session_timeout, the socket stays connected — text continues
+    expect(client.isConnected).toBe(true);
+    expect(mockSocket.disconnect).not.toHaveBeenCalled();
+    expect(() => client.sendText('still texting')).not.toThrow();
+  });
+
   it('should connect and forward events', async () => {
     const handlers: Record<string, (...args: unknown[]) => void> = {};
     mockSocket.on.mockImplementation((event: string, handler: (...args: unknown[]) => void) => {
