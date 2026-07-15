@@ -392,6 +392,21 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
     return this.audioPlayer?.getAudioElapsedForMessage(messageId) ?? 0;
   }
 
+  /**
+   * MediaStream carrying decoded bot TTS playback (WebSocket transport only).
+   *
+   * Returns null until the first audio chunk arrives — the AudioContext and
+   * MediaStreamDestination are created lazily on first enqueue. Consumers
+   * should poll this getter (e.g. on `audioPlaybackStarted`) rather than
+   * caching at session start.
+   *
+   * Intended for visualization / lipsync taps that need to inspect the audio
+   * signal without owning the playback graph.
+   */
+  getPlaybackStream(): MediaStream | null {
+    return this.audioPlayer?.playbackStream ?? null;
+  }
+
   /** Whether mic suppression during playback is enabled */
   get suppressMicDuringPlayback(): boolean {
     return this.config.suppressMicDuringPlayback ?? false;

@@ -6,6 +6,10 @@ export type AudioPlaybackEvent =
 
 export class AudioPlayer {
   private sampleRate: number;
+  // Sample rate to PLAY bot audio at (from the bot_voice payload, e.g. 24000) —
+  // distinct from `sampleRate` (the mic-uplink config). Captured from the first
+  // chunk; the AudioContext is built at this rate to avoid downsampling.
+  private _playbackRate: number | null = null;
   private onEvent: (event: AudioPlaybackEvent) => void;
   private audioContext: AudioContext | null = null;
   private mediaStreamDest: MediaStreamAudioDestinationNode | null = null;
@@ -70,6 +74,17 @@ export class AudioPlayer {
     return this.currentMessageId;
   }
 
+  /**
+   * The MediaStream carrying decoded bot TTS playback. Consumers can feed
+   * this into their own AudioContext via createMediaStreamSource() to tap
+   * the audio for visualization or lipsync without disturbing the playback
+   * graph. Returns null before the first chunk arrives (the AudioContext
+   * and MediaStreamDestination are created lazily on first enqueue).
+   */
+  get playbackStream(): MediaStream | null {
+    return this.mediaStreamDest?.stream ?? null;
+  }
+
   /** Mark a messageId as interrupted so late-arriving chunks are dropped */
   setInterruptedMessageId(id: string | null): void {
     this._interruptedMessageId = id;
@@ -89,13 +104,22 @@ export class AudioPlayer {
     // Cancel pending drain — more audio is arriving
     this.cancelDrain();
 
+    // Play at the audio's OWN sample rate (from the bot_voice payload, e.g.
+    // 24000), NOT the SDK's configured `this.sampleRate` — that constructor arg
+    // is the MIC-uplink rate (SARAH sets it to 16000 for the HuBERT body gate).
+    // Using it here played 24kHz TTS as 16kHz => 0.667x speed (slow-motion).
+    const playbackRate = voice.sampleRate ?? this.sampleRate;
+    // Build the (lazy) AudioContext at the playback rate too, so 24kHz audio
+    // isn't downsampled to 16kHz — full fidelity, not just correct speed.
+    if (this._playbackRate === null) this._playbackRate = playbackRate;
+
     const ctx = this.getAudioContext();
     if (!ctx) return;
 
     const pcm16 = base64ToInt16Array(voice.audio);
     const float32 = int16ToFloat32(pcm16);
 
-    const buffer = ctx.createBuffer(1, float32.length, this.sampleRate);
+    const buffer = ctx.createBuffer(1, float32.length, playbackRate);
     buffer.getChannelData(0).set(float32);
 
     // New message — reset the played-time accumulator. Any in-flight
@@ -225,7 +249,7 @@ export class AudioPlayer {
     }
 
     const AudioCtx = globalThis.AudioContext || (globalThis as any).webkitAudioContext;
-    const ctx = new AudioCtx({ sampleRate: this.sampleRate });
+    const ctx = new AudioCtx({ sampleRate: this._playbackRate ?? this.sampleRate });
     this.audioContext = ctx;
 
     // Route through a MediaStreamDestination → hidden <audio> element so the
