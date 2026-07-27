@@ -466,6 +466,9 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
       this.emit('voiceTimeout', data);
     });
     this.socketManager.on('cameraCaptureRequest', (request) => this.emit('cameraCaptureRequest', request));
+    // Typed client_action events (contract v1.9) — same public characterAction
+    // event as the legacy text-tag path, so integrators see no API change.
+    this.socketManager.on('characterAction', (action) => this.emit('characterAction', action));
     this.socketManager.on('livekitConnected', (room) => this.emit('livekitConnected', room));
     this.socketManager.on('livekitDisconnected', () => this.emit('livekitDisconnected'));
     this.socketManager.on('memoryUpdated', (event) => this.emit('memoryUpdated', event));
@@ -474,7 +477,12 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
   private handleBotResponse(response: BotResponse): void {
     const { messageId } = response;
 
-    // Get or create a parser for this message stream
+    // Legacy inline <action/> tag parsing (pre-contract-v1.9). Actions now
+    // arrive as typed client_action events (see forwardSocketEvents); the
+    // server no longer instructs models to emit tags, so this parser is
+    // dormant — but models may still emit stray tags, and we keep stripping
+    // them from the displayed text (and firing characterAction if one slips
+    // through). Remove after the deprecation window.
     if (!this.actionParsers.has(messageId)) {
       this.actionParsers.set(messageId, new StreamingActionParser());
     }

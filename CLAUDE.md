@@ -38,6 +38,7 @@ default_playback_sample_rate: 24000    # TTS audio generated at 24kHz by default
 | voice_websocket | Implemented | WebSocketVoiceManager |
 | voice_livekit | Implemented | LiveKitVoiceManager (optional peer dep). LiveKit activates only on `startVoice()` — nothing is touched at `connect()`. The `livekit_token` request at voice start doubles as the gateway's voice-intent signal: it launches the server's bot pre-join + STT pre-connect in the background (warm start), overlapping the mic-permission prompt and room connect. Do NOT switch to the embedded session_info token without also emitting `livekit_token` — that would silently downgrade every voice start to the cold join path (see SDK_CONTRACT.md voice_livekit → Resource allocation). |
 | interrupts | Implemented | interrupt() + interrupt event |
+| client_action | Implemented | Typed `client_action` server event (contract v1.9, SCRUM-202) → existing `characterAction` event, fire-on-arrival. Wire `arguments` values (`string \| number \| boolean`) are stringified in `toCharacterAction` so `params` stays `Record<string, string>` — no API change for consumers. The legacy inline `<action/>` text-tag parser (`StreamingActionParser` in `handleBotResponse`) is retained but dormant during the deprecation window: it still strips stray tags from `botResponse.text` (and would fire `characterAction` on them). Remove in a follow-up release. `chunk_index`/`timestamp` envelope fields are not surfaced (public `CharacterAction` unchanged). |
 | audio_playback_tracking | Implemented | AudioPlayer (WebSocket) + LiveKit metadata tracking |
 | vision_camera | Implemented | sendCameraImage() + cameraCaptureRequest event |
 | video_streaming_livekit | Not implemented | AR/VR only |
@@ -74,7 +75,7 @@ src/
 │   └── audio-recorder.ts     # Mic capture + PCM encoding
 └── utils/
     ├── event-emitter.ts      # Strongly-typed EventEmitter
-    ├── action-parser.ts      # Streaming character action parser
+    ├── action-parser.ts      # Legacy <action/> text-tag parser (dormant; actions now arrive via client_action)
     └── logger.ts             # Debug logger
 ```
 

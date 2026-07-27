@@ -151,6 +151,18 @@ export interface WireMemoryUpdated {
   timestamp: string;
 }
 
+/** @internal — typed client_action event (SDK_CONTRACT.md v1.9, SCRUM-202) */
+export interface WireClientAction {
+  name: string;
+  /** Validated server-side against the character's declared parameter types. */
+  arguments: Record<string, string | number | boolean>;
+  message_id: string;
+  /** Sentence counter when the action was emitted; not needed for correct behavior. */
+  chunk_index: number;
+  /** ISO 8601 server emit time. */
+  timestamp: string;
+}
+
 // ─── Public Types (camelCase) ────────────────────────────────────
 
 export interface SessionInfo {
@@ -368,6 +380,21 @@ export function toCameraCaptureRequest(wire: WireCameraCaptureRequest): CameraCa
   };
 }
 
+/** @internal — argument values are stringified so `params` stays
+ *  Record<string, string>, matching the legacy XML-attribute behavior
+ *  (no type change for characterAction consumers). */
+export function toCharacterAction(wire: WireClientAction): CharacterAction {
+  const params: Record<string, string> = {};
+  for (const [key, value] of Object.entries(wire.arguments ?? {})) {
+    params[key] = String(value); // numbers via String(), booleans → "true"/"false"
+  }
+  return {
+    name: wire.name,
+    params,
+    messageId: wire.message_id,
+  };
+}
+
 /** @internal */
 export function toMemoryUpdatedEvent(wire: WireMemoryUpdated): MemoryUpdatedEvent {
   return {
@@ -406,12 +433,18 @@ export interface ShareOpenResponse {
 
 // ─── Character Actions ───────────────────────────────────────────
 
+/**
+ * A character-defined in-world action, emitted as a `characterAction` event.
+ * Delivered by the server as a typed `client_action` event (contract v1.9);
+ * the legacy inline `<action/>` text-tag parser also produces these while it
+ * remains during the deprecation window.
+ */
 export interface CharacterAction {
   /** Action name (e.g., "follow_user", "sit", "look_at") */
   name: string;
-  /** Action parameters as key-value pairs */
+  /** Action parameters as key-value pairs (values always strings) */
   params: Record<string, string>;
-  /** Message ID of the bot response that contained this action */
+  /** Message ID of the bot response turn that contained this action */
   messageId: string;
 }
 

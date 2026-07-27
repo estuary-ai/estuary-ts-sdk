@@ -17,6 +17,7 @@ import {
   WireCameraCaptureRequest,
   WireLiveKitTokenResponse,
   WireMemoryUpdated,
+  WireClientAction,
   SessionInfo,
   LiveKitTokenResponse,
   toSessionInfo,
@@ -30,6 +31,7 @@ import {
   toCameraCaptureRequest,
   toLiveKitTokenResponse,
   toMemoryUpdatedEvent,
+  toCharacterAction,
 } from '../types';
 
 export class SocketManager extends TypedEventEmitter<EstuaryEventMap> {
@@ -230,6 +232,14 @@ export class SocketManager extends TypedEventEmitter<EstuaryEventMap> {
 
     this.socket.on('camera_capture', (data: WireCameraCaptureRequest) => {
       this.emit('cameraCaptureRequest', toCameraCaptureRequest(data));
+    });
+
+    this.socket.on('client_action', (data: WireClientAction) => {
+      // Typed action delivery (SDK_CONTRACT.md client_action, v1.9). Replaces
+      // the legacy inline <action/> tags parsed out of bot_response text.
+      // Fire-on-arrival: not synchronized to TTS playback position.
+      this.logger.debug('client_action:', data.name, data.arguments);
+      this.emit('characterAction', toCharacterAction(data));
     });
 
     this.socket.on('error', (data: { message: string }) => {
