@@ -108,9 +108,20 @@ export class SocketManager extends TypedEventEmitter<EstuaryEventMap> {
           authPayload.api_key = this.config.apiKey;
         }
 
-        if (this.config.capabilities) {
-          authPayload.capabilities = { version: '1', ...this.config.capabilities };
-        }
+        // Always sent, even when the app declares no device capabilities, because
+        // `client_action` is a protocol capability of THIS SDK build rather than an
+        // app-level choice: it tells the server this client understands typed
+        // `client_action` events. Omit it and the server serves the retired XML
+        // <action> tag path instead (SDK_CONTRACT v1.10), silently routing actions
+        // to the dormant StreamingActionParser. Not user-overridable — the spread
+        // is deliberately placed before it.
+        // Device fields left absent still default to true server-side, so an app
+        // that passes no capabilities is unaffected.
+        authPayload.capabilities = {
+          version: '1',
+          ...this.config.capabilities,
+          client_action: true,
+        };
 
         this.socket!.emit('authenticate', authPayload);
       };
