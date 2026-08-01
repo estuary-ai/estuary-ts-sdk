@@ -39,7 +39,12 @@ export interface EstuaryConfig {
 
 export type VoiceTransport = 'websocket' | 'livekit' | 'auto';
 
-/** Per-session client capability declaration. Pass on `EstuaryConfig.capabilities`. */
+/** Per-session *device* capability declaration. Pass on `EstuaryConfig.capabilities`.
+ *
+ *  Protocol capabilities are not part of this interface. The SDK adds
+ *  `client_action: true` to the wire payload itself (see socket-manager), since
+ *  whether this build understands typed `client_action` events is a fact about
+ *  the SDK, not a choice the app gets to make. */
 export interface SessionCapabilities {
   /** Schema version. Defaults to "1" when omitted. */
   version?: string;

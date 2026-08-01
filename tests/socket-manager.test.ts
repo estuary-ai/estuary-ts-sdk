@@ -14,7 +14,7 @@ vi.mock('socket.io-client', () => ({
 
 import { SocketManager } from '../src/connection/socket-manager';
 import { Logger } from '../src/utils/logger';
-import { ConnectionState } from '../src/types';
+import { ConnectionState, type EstuaryConfig } from '../src/types';
 
 describe('SocketManager', () => {
   let manager: SocketManager;
@@ -53,6 +53,9 @@ describe('SocketManager', () => {
       player_id: 'player-456',
       audio_sample_rate: 24000,
       realtime_memory: false,
+      // Sent even with no app-declared capabilities: without it the server
+      // serves the legacy XML tag path and this build gets no actions.
+      capabilities: { version: '1', client_action: true },
     });
 
     handlers['session_info']({
@@ -83,7 +86,40 @@ describe('SocketManager', () => {
     expect(mockSocket.emit).toHaveBeenCalledWith(
       'authenticate',
       expect.objectContaining({
-        capabilities: { version: '1', camera: false, microphone: true, speaker: true },
+        capabilities: {
+          version: '1',
+          camera: false,
+          microphone: true,
+          speaker: true,
+          client_action: true,
+        },
+      }),
+    );
+  });
+
+  it('should not let an app disable client_action', async () => {
+    // client_action is a fact about the SDK build, not an app preference.
+    // Turning it off would silently downgrade the session to the retired XML
+    // tag path, which this build's parser only handles as a dormant fallback.
+    const managerWithCaps = new SocketManager(
+      {
+        ...config,
+        capabilities: { client_action: false } as EstuaryConfig['capabilities'],
+      },
+      new Logger(false),
+    );
+    const handlers: Record<string, (...args: unknown[]) => void> = {};
+    mockSocket.on.mockImplementation((event: string, handler: (...args: unknown[]) => void) => {
+      handlers[event] = handler;
+    });
+
+    managerWithCaps.connect().catch(() => {});
+    handlers['connect']();
+
+    expect(mockSocket.emit).toHaveBeenCalledWith(
+      'authenticate',
+      expect.objectContaining({
+        capabilities: expect.objectContaining({ client_action: true }),
       }),
     );
   });
