@@ -28,6 +28,11 @@ import { ScriptPlayer, type ScriptHost } from './scripting/script-player';
 const DEFAULT_SAMPLE_RATE = 24000;
 const REST_UNAVAILABLE_MESSAGE =
   'REST API not available with session token auth. Use a server-side proxy for REST calls.';
+// After this long hidden, a socket that still reports connected is treated as
+// a zombie: past the server's Engine.IO ping window (~45s of silence) the
+// server side is gone, but a page resumed from iOS suspension only finds out
+// on its next overdue ping. Resume over a fresh connection instead.
+const STALE_SOCKET_AFTER_HIDDEN_MS = 30_000;
 
 export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
   private config: EstuaryConfig;
@@ -43,6 +48,16 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
   private _autoInterruptGraceTimer: ReturnType<typeof setTimeout> | null = null;
   private _isLiveKitSpeaking = false;
   private _activeScript: ScriptPlayer | null = null;
+  // Voice was active when the socket unexpectedly dropped — restart it after
+  // the next successful (re)connect.
+  private _resumeVoiceOnReconnect = false;
+  // Page-lifecycle state (browser only): voice was active when the page was
+  // hidden (home button, tab switch, App Clip dismissal) and should resume
+  // when the page becomes visible again.
+  private _voiceActiveBeforeHide = false;
+  private _hiddenAtMs = 0;
+  private _resumingVoice = false;
+  private _lifecycleBound = false;
 
   constructor(config: EstuaryConfig) {
     super();
@@ -58,6 +73,7 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
     this.logger = new Logger(config.debug ?? false);
     this.socketManager = new SocketManager(config, this.logger);
     this.forwardSocketEvents();
+    this.bindPageLifecycle();
 
     // REST clients require an apiKey. Session-token flows (share links) must
     // use a server-side proxy for any REST calls.
@@ -134,6 +150,8 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
   /** Disconnect from the server */
   async disconnect(): Promise<void> {
     this.logger.info('Disconnecting...');
+    this._resumeVoiceOnReconnect = false;
+    this._voiceActiveBeforeHide = false;
     if (this._activeScript && this._activeScript.state !== 'done') {
       this._activeScript.stop();
     }
@@ -359,6 +377,114 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
     this.emit('voiceStopped');
   }
 
+  // ─── Page Lifecycle (browser only) ───────────────────────────
+  //
+  // Without this, backgrounding the page (home button, tab switch, App Clip
+  // dismissal) leaves the LiveKit room joined: the bot's WebRTC <audio>
+  // element keeps playing — iOS keeps pages with active audio running in the
+  // background, so the character audibly keeps talking — and the room bills
+  // connection-minutes until the server reaper fires. Hide → release voice
+  // (livekit_leave rides the still-open socket, so the server deletes the
+  // room immediately); show → resume voice, over a fresh connection when the
+  // suspended socket can no longer be trusted.
+
+  private readonly onVisibilityChange = (): void => {
+    if (document.visibilityState === 'hidden') {
+      this.handlePageHidden();
+    } else {
+      this.handlePageVisible();
+    }
+  };
+  private readonly onPageHide = (): void => this.handlePageHidden();
+  private readonly onPageShow = (): void => this.handlePageVisible();
+
+  private bindPageLifecycle(): void {
+    if (this.config.manageBrowserLifecycle === false) return;
+    if (typeof document === 'undefined' || typeof window === 'undefined') return;
+    document.addEventListener('visibilitychange', this.onVisibilityChange);
+    window.addEventListener('pagehide', this.onPageHide);
+    window.addEventListener('pageshow', this.onPageShow);
+    this._lifecycleBound = true;
+  }
+
+  private unbindPageLifecycle(): void {
+    if (!this._lifecycleBound) return;
+    document.removeEventListener('visibilitychange', this.onVisibilityChange);
+    window.removeEventListener('pagehide', this.onPageHide);
+    window.removeEventListener('pageshow', this.onPageShow);
+    this._lifecycleBound = false;
+  }
+
+  private handlePageHidden(): void {
+    if (!this.voiceManager?.isActive) return;
+    this._voiceActiveBeforeHide = true;
+    this._hiddenAtMs = Date.now();
+    // releaseVoice's synchronous prefix emits livekit_leave and starts the
+    // room disconnect — the parts that must land before iOS suspends the
+    // page. The rest completes in microtasks if the page survives.
+    void this.releaseVoice();
+  }
+
+  private handlePageVisible(): void {
+    if (!this._voiceActiveBeforeHide || this._resumingVoice) return;
+    this._voiceActiveBeforeHide = false;
+    this._resumingVoice = true;
+    void this.resumeVoiceAfterHide().finally(() => {
+      this._resumingVoice = false;
+    });
+  }
+
+  private async resumeVoiceAfterHide(): Promise<void> {
+    try {
+      const hiddenMs = Date.now() - this._hiddenAtMs;
+      if (this.socketManager.isConnected && hiddenMs >= STALE_SOCKET_AFTER_HIDDEN_MS) {
+        this.socketManager.disconnect();
+      }
+      if (!this.socketManager.isConnected) {
+        await this.connect();
+      }
+      if (!this.voiceManager?.isActive) {
+        await this.startVoice();
+      }
+    } catch {
+      // First attempt likely rode a zombie socket that still reported
+      // connected — retry once over a guaranteed-fresh connection.
+      try {
+        this.socketManager.disconnect();
+        await this.connect();
+        if (!this.voiceManager?.isActive) {
+          await this.startVoice();
+        }
+      } catch (err) {
+        this.emit('error', new EstuaryError(
+          ErrorCode.CONNECTION_FAILED,
+          'Failed to resume voice after returning to the page',
+          err,
+        ));
+        return;
+      }
+    }
+    // The page may have been hidden again mid-resume — don't leave a billed
+    // call running in the background.
+    if (
+      typeof document !== 'undefined' &&
+      document.visibilityState === 'hidden' &&
+      this.voiceManager?.isActive
+    ) {
+      this.handlePageHidden();
+    }
+  }
+
+  /**
+   * Permanently dispose this client: disconnects and unbinds the browser
+   * page-lifecycle listeners. Use when discarding the instance for good —
+   * a disposed client no longer releases/resumes voice on page hide/show.
+   */
+  async dispose(): Promise<void> {
+    this.unbindPageLifecycle();
+    await this.disconnect();
+  }
+
   /** Toggle microphone mute */
   toggleMute(): void {
     if (!this.voiceManager?.isActive) {
@@ -421,11 +547,39 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
     // Forward all socket manager events to this client's event emitter
     this.socketManager.on('connected', (session) => {
       this._sessionInfo = session;
+      const resumeVoice = this._resumeVoiceOnReconnect && !this._resumingVoice;
+      this._resumeVoiceOnReconnect = false;
       this.emit('connected', session);
+      if (resumeVoice && !this.voiceManager?.isActive) {
+        void this.startVoice().catch((err) => {
+          this.emit('error', new EstuaryError(
+            ErrorCode.CONNECTION_FAILED,
+            'Failed to resume voice after reconnect',
+            err,
+          ));
+        });
+      }
     });
     this.socketManager.on('disconnected', (reason) => {
       this._sessionInfo = null;
       this.actionParsers.clear();
+      // A dropped transport orphans the voice session: the server-side
+      // session (and its LiveKit room) died with the socket, but the local
+      // manager stays isActive — mic hot, and the next startVoice() throws
+      // VOICE_ALREADY_ACTIVE. Release it, and if the drop was unexpected,
+      // arrange to restart voice after the next successful (re)connect.
+      // (session_timeout/voice_timeout already nulled the manager
+      // synchronously, so an idle reap never sets the resume flag here.)
+      const voiceWasActive = this.voiceManager?.isActive ?? false;
+      void this.releaseVoice();
+      if (
+        voiceWasActive &&
+        reason !== 'manual' &&
+        reason !== 'io server disconnect' &&
+        (this.config.resumeVoiceOnReconnect ?? true)
+      ) {
+        this._resumeVoiceOnReconnect = true;
+      }
       this.emit('disconnected', reason);
     });
     this.socketManager.on('reconnecting', (attempt) => this.emit('reconnecting', attempt));

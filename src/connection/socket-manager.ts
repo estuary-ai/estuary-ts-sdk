@@ -45,6 +45,12 @@ export class SocketManager extends TypedEventEmitter<EstuaryEventMap> {
   // Set by session_timeout: suppresses the auto-reconnect for the
   // server-initiated disconnect that immediately follows it.
   private serverEndedSession = false;
+  // In-flight connect. Concurrent connect() calls (an explicit call racing
+  // our own reconnect timer, or a page-resume racing the engine's death
+  // detection) must share one attempt — the loser of that race would open a
+  // second socket and leak a phantom billed session server-side.
+  private connectPromise: Promise<SessionInfo> | null = null;
+  private abortPendingConnect: ((err: EstuaryError) => void) | null = null;
 
   constructor(config: EstuaryConfig, logger: Logger) {
     super();
@@ -69,17 +75,27 @@ export class SocketManager extends TypedEventEmitter<EstuaryEventMap> {
   }
 
   connect(): Promise<SessionInfo> {
-    return new Promise((resolve, reject) => {
-      if (this.socket?.connected) {
-        if (this.sessionInfo) {
-          resolve(this.sessionInfo);
-          return;
-        }
-      }
+    if (this.connectPromise) return this.connectPromise;
+    if (this.socket?.connected && this.sessionInfo) {
+      return Promise.resolve(this.sessionInfo);
+    }
 
+    // An explicit connect supersedes any scheduled reconnect retry — without
+    // this, the pending timer fires later and opens a second socket.
+    this.clearReconnectTimer();
+
+    const promise = new Promise<SessionInfo>((resolve, reject) => {
       this.setConnectionState(ConnectionState.Connecting);
-      this.reconnectAttempt = 0;
       this.serverEndedSession = false; // explicit connect overrides a prior idle timeout
+
+      // Drop any previous (dead or zombie) socket before opening a new one.
+      // Kept alive, its still-bound listeners would replay disconnect/error
+      // events from the old transport into this manager's state.
+      if (this.socket) {
+        this.socket.removeAllListeners();
+        this.socket.disconnect();
+        this.socket = null;
+      }
 
       const url = `${this.config.serverUrl}/sdk`;
       this.logger.debug('Connecting to', url);
@@ -92,6 +108,12 @@ export class SocketManager extends TypedEventEmitter<EstuaryEventMap> {
       });
 
       let settled = false;
+      this.abortPendingConnect = (err: EstuaryError) => {
+        if (!settled) {
+          settled = true;
+          reject(err);
+        }
+      };
 
       const onConnect = () => {
         this.logger.debug('Socket connected, authenticating...');
@@ -180,10 +202,26 @@ export class SocketManager extends TypedEventEmitter<EstuaryEventMap> {
       // Wire up all server → client events
       this.bindServerEvents();
     });
+
+    this.connectPromise = promise;
+    const clear = () => {
+      if (this.connectPromise === promise) {
+        this.connectPromise = null;
+        this.abortPendingConnect = null;
+      }
+    };
+    promise.then(clear, clear);
+    return promise;
   }
 
   disconnect(): void {
     this.clearReconnectTimer();
+    // Settle any in-flight connect — its socket listeners are removed below,
+    // so left alone the promise would hang forever (and connect() would keep
+    // handing the hung promise out).
+    this.abortPendingConnect?.(
+      new EstuaryError(ErrorCode.CONNECTION_FAILED, 'Connection attempt aborted by disconnect()'),
+    );
     this.sessionInfo = null;
     if (this.socket) {
       this.socket.removeAllListeners();
@@ -326,7 +364,12 @@ export class SocketManager extends TypedEventEmitter<EstuaryEventMap> {
     this.reconnectTimer = setTimeout(() => {
       this.connect().catch((err) => {
         this.logger.error('Reconnect failed:', err.message);
-        // Will trigger another attempt via handleDisconnect
+        // A failed attempt rejects without ever reaching handleDisconnect,
+        // so the next attempt must be scheduled from here. Skip it when the
+        // rejection came from a manual disconnect() aborting the attempt
+        // (state is Disconnected by the time this microtask runs).
+        if (this.connectionState === ConnectionState.Disconnected) return;
+        this.attemptReconnect();
       });
     }, delay * this.reconnectAttempt); // Linear backoff: delay * attempt
   }

@@ -29,6 +29,18 @@ export interface EstuaryConfig {
   suppressMicDuringPlayback?: boolean;
   /** Proactively interrupt bot audio when user starts speaking (default: true) */
   autoInterruptOnSpeech?: boolean;
+  /** Manage the browser page lifecycle (default: true; no-op outside browsers).
+   *  When the page is hidden or dismissed (home button, tab switch, App Clip
+   *  close), voice is released — the LiveKit room is left server-side so audio
+   *  and billing stop — and when the page becomes visible again, voice resumes
+   *  automatically (reconnecting the socket first if the suspended one went
+   *  stale). Set false to manage backgrounding yourself. */
+  manageBrowserLifecycle?: boolean;
+  /** Restart voice automatically after an unexpected disconnect once the
+   *  connection is re-established, if voice was active when it dropped
+   *  (default: true). Server-initiated disconnects (idle reap, quota) never
+   *  auto-resume regardless of this flag. */
+  resumeVoiceOnReconnect?: boolean;
   /** Per-session client capability declaration. Tells the server what the device
    *  can physically do (camera, microphone, speaker). When omitted, the server
    *  defaults all fields to true for backward compatibility. Tools requiring a

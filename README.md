@@ -284,6 +284,8 @@ interface EstuaryConfig {
   realtimeMemory?: boolean;    // Enable real-time memory extraction events. Default: false
   suppressMicDuringPlayback?: boolean; // Mute mic while bot audio plays (software AEC). Default: false
   autoInterruptOnSpeech?: boolean;     // Interrupt bot audio when user speaks. Default: true
+  manageBrowserLifecycle?: boolean;    // Release voice on page hide, resume on page show. Default: true
+  resumeVoiceOnReconnect?: boolean;    // Restart voice after an unexpected disconnect + reconnect. Default: true
   capabilities?: SessionCapabilities;  // Per-session device capability declaration
 }
 
@@ -311,6 +313,12 @@ const client = new EstuaryClient({
   },
 });
 ```
+
+### Page Lifecycle (browsers)
+
+By default the SDK manages the browser page lifecycle for voice sessions. When the page is hidden or dismissed (home button, tab switch, iOS App Clip close), voice is released — the LiveKit room is left so character audio and billing stop immediately. When the page becomes visible again, voice resumes automatically, reconnecting the socket first when the backgrounded one has gone stale. The same applies to unexpected disconnects: voice restarts once the connection is re-established.
+
+`voiceStopped`/`voiceStarted` events fire on these transitions, so apps can keep UI state (mute buttons, indicators) in sync. Note the resumed mic comes up unmuted — re-apply your mute state in a `voiceStarted` handler if your UI has one. Set `manageBrowserLifecycle: false` and/or `resumeVoiceOnReconnect: false` to handle these yourself.
 
 ## Runtime Properties
 
