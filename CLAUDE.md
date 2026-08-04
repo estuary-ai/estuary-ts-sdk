@@ -39,7 +39,7 @@ default_playback_sample_rate: 24000    # TTS audio generated at 24kHz by default
 | voice_livekit | Implemented | LiveKitVoiceManager (optional peer dep). LiveKit activates only on `startVoice()` — nothing is touched at `connect()`. The `livekit_token` request at voice start doubles as the gateway's voice-intent signal: it launches the server's bot pre-join + STT pre-connect in the background (warm start), overlapping the mic-permission prompt and room connect. Do NOT switch to the embedded session_info token without also emitting `livekit_token` — that would silently downgrade every voice start to the cold join path (see SDK_CONTRACT.md voice_livekit → Resource allocation). |
 | interrupts | Implemented | interrupt() + interrupt event |
 | client_action | Implemented | Typed `client_action` server event (contract v1.10, SCRUM-202) → existing `characterAction` event, fire-on-arrival. **Opt-in is mandatory and automatic:** `socket-manager` always sends `capabilities.client_action: true` in the auth payload, because the server defaults that field to `false` and serves the retired XML `<action>` tag path to anything that doesn't declare it. It is injected after the `...config.capabilities` spread so an app cannot disable it — doing so would silently downgrade the session to the legacy path. Wire `arguments` values (`string \| number \| boolean`) are stringified in `toCharacterAction` so `params` stays `Record<string, string>` — no API change for consumers. The legacy inline `<action/>` text-tag parser (`StreamingActionParser` in `handleBotResponse`) is retained but dormant: on the opted-in path it only ever sees stray tags. `chunk_index`/`timestamp` envelope fields are not surfaced (public `CharacterAction` unchanged). |
-| audio_playback_tracking | Implemented | AudioPlayer (WebSocket) + LiveKit metadata tracking |
+| audio_playback_tracking | Implemented | AudioPlayer drain events (WebSocket) + the bot's `estuary.state` participant attribute (LiveKit). Metadata-only `bot_voice` events are ignored on the LiveKit path — see "Audio Playback: Two Paths". |
 | vision_camera | Implemented | sendCameraImage() + cameraCaptureRequest event |
 | video_streaming_livekit | Not implemented | AR/VR only |
 | video_streaming_websocket | Not implemented | AR/VR only |
@@ -88,9 +88,15 @@ The SDK has two completely different audio playback paths depending on the voice
 Bot audio arrives as base64 PCM chunks via `bot_voice` Socket.IO events with an `audio` field. The `AudioPlayer` decodes, buffers, and plays these chunks using Web Audio API. The AudioPlayer emits `started`/`complete` lifecycle events with a 300ms drain delay between chunks.
 
 ### LiveKit path
-Bot audio is streamed directly as a WebRTC media track — the `LiveKitVoiceManager` subscribes to the remote audio track and attaches it to an `<audio>` element. The `AudioPlayer` is **not used**. Instead, the backend sends **metadata-only** `bot_voice` events (with `is_livekit: true`, no `audio` field) for message tracking. The client uses these metadata events to detect playback start:
-- First metadata event for a new message → emit `audioPlaybackStarted`
-- Playback completion is detected via LiveKit's `RoomEvent.ActiveSpeakersChanged` (server-side VAD). When the bot (remote participant) drops off the active speakers list, `onBotSpeakingChanged(false)` fires → emit `audioPlaybackComplete`. No client-side drain timer needed.
+Bot audio is streamed directly as a WebRTC media track — the `LiveKitVoiceManager` subscribes to the remote audio track and attaches it to an `<audio>` element. The `AudioPlayer` is **not used**. The backend also sends **metadata-only** `bot_voice` events (with `is_livekit: true`, no `audio` field), but those are ignored by `handleBotVoice` — they are not what drives the playback lifecycle.
+
+Both playback events come from a single server-driven signal: the bot participant's **`estuary.state` attribute**. `LiveKitVoiceManager` listens for `RoomEvent.ParticipantAttributesChanged` (`livekit-voice.ts`) and forwards `speaking`/`idle` through `setSpeakingStateCallback`, which `startVoice()` wires to the events (`client.ts`):
+- `estuary.state=speaking` → `audioPlaybackStarted` (plus the auto-interrupt grace period and, if enabled, mic suppression)
+- `estuary.state=idle` → `audioPlaybackComplete` + `botAudioLevel(0)`
+
+There is no client-side drain timer and no `ActiveSpeakersChanged` involvement on this path.
+
+**`idle` is not instantaneous, by design.** The gateway's audio sender loop pushes frames unpaced — `capture_frame()` only blocks once LiveKit's `AudioSource` queue is full — so it finishes *sending* a message up to a full queue depth (~1s) before the client has *heard* it. The gateway therefore waits out `AudioSource.wait_for_playout()` before setting `idle` (`livekit_manager.py`, `_signal_idle_after_playout`). Without that wait, `audioPlaybackComplete` arrived ~1.1s early (measured), and apps that unmute the mic on it — see estuary-web-ar-demo / -share `EstuaryVoiceConnection.ts` — opened the mic while the character was still talking, feeding its own tail into STT. A residual client-side jitter-buffer delay of ~100-300ms remains that the server cannot see, so treat `audioPlaybackComplete` as "essentially done", not "the last sample has been heard".
 
 This distinction matters for any feature that depends on knowing when the bot is speaking (e.g., `suppressMicDuringPlayback`, auto-interrupt, UI indicators). Always check `_isBotPlaying` which covers both paths.
 
@@ -146,7 +152,7 @@ npm run format       # Prettier
 
 1. **LiveKit audio bypasses AudioPlayer.** The `AudioPlayer` only handles WebSocket voice. With LiveKit, bot audio is a WebRTC track played by the browser directly. Any feature depending on playback state must check `_isBotPlaying` (not just `audioPlayer.playing`).
 
-2. **`bot_response.isFinal` != audio done.** Text generation finishes before TTS. For LiveKit, playback completion is determined by a 2-second drain timer after the last `bot_voice` metadata event. For WebSocket, the AudioPlayer has a 300ms drain delay.
+2. **`bot_response.isFinal` != audio done.** Text generation finishes before TTS. For LiveKit, playback completion arrives as the bot's `estuary.state=idle` participant attribute, which the gateway holds until its `AudioSource` has played out (see "LiveKit path" above). For WebSocket, the AudioPlayer has a 300ms drain delay.
 
 3. **`toggleMute` vs `setSuppressed` are independent.** `_isMuted` is user-initiated (UI toggle). `_isSuppressed` is automatic (suppress during playback). Both prevent audio from being sent, but they must be tracked separately. Never use `toggleMute` for automatic suppression — it conflicts with user intent.
 
