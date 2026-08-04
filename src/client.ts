@@ -48,6 +48,9 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
   private _autoInterruptGraceTimer: ReturnType<typeof setTimeout> | null = null;
   private _isLiveKitSpeaking = false;
   private _activeScript: ScriptPlayer | null = null;
+  // Warn once per client about bot audio that arrived over a transport we
+  // cannot play, rather than once per chunk.
+  private _warnedUnplayableAudio = false;
   // Voice was active when the socket unexpectedly dropped — restart it after
   // the next successful (re)connect.
   private _resumeVoiceOnReconnect = false;
@@ -670,7 +673,21 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
     this.emit('botVoice', voice);
     if (voice.audio) {
       // WebSocket transport — real audio data, AudioPlayer handles full lifecycle
-      this.audioPlayer?.enqueue(voice);
+      if (this.audioPlayer) {
+        this.audioPlayer.enqueue(voice);
+      } else if (!this._warnedUnplayableAudio) {
+        // The server only sends audio-bearing bot_voice over Socket.IO when its
+        // LiveKit send failed and it fell back. In LiveKit mode there is no
+        // AudioPlayer (an AudioContext would compete with the WebRTC track for
+        // mobile audio resources), so that fallback is silently inaudible —
+        // which reads as the character skipping part of a line. Say so once.
+        this._warnedUnplayableAudio = true;
+        this.logger.warn(
+          'Received bot_voice audio with no AudioPlayer (LiveKit transport) — ' +
+            'the server fell back to Socket.IO audio delivery and this audio ' +
+            'cannot be played. Check the gateway for "LiveKit audio send failed".',
+        );
+      }
       // Compute and emit audio level from PCM data
       this.emit('botAudioLevel', this.computeAudioLevel(voice.audio));
     }
