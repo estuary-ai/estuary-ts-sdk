@@ -1,5 +1,29 @@
 // ─── Configuration ───────────────────────────────────────────────
 
+/**
+ * Browser microphone DSP applied at capture (getUserMedia constraints on the
+ * WebSocket path; LiveKit `audioCaptureDefaults` on the LiveKit path).
+ *
+ * Defaults (all enabled) follow WebRTC/LiveKit best practice and are correct for
+ * human-facing voice and speech-to-text. HOWEVER, pipelines that feed the raw
+ * audio to a model trained on unprocessed audio — notably SARAH body animation,
+ * whose HuBERT features are sensitive to auto-gain pumping, noise-suppression
+ * "musical noise", and voice-isolation artifacts on quiet input — should DISABLE
+ * `autoGainControl`, `noiseSuppression`, and `voiceIsolation` while KEEPING
+ * `echoCancellation` (still needed when the user is on speakers). Each field
+ * defaults to `true` when omitted, so existing consumers are unaffected.
+ */
+export interface AudioProcessingOptions {
+  /** Cancel bot/system audio that leaks into the mic (keep ON when on speakers). Default: true. */
+  echoCancellation?: boolean;
+  /** Attenuate steady background noise. Aggressive on quiet input → distortion. Default: true. */
+  noiseSuppression?: boolean;
+  /** Auto-adjust mic gain. On a silent room this cranks ~30 dB and pumps → OOD. Default: true. */
+  autoGainControl?: boolean;
+  /** Neural voice isolation (LiveKit path only; ignored on WebSocket). Default: true. */
+  voiceIsolation?: boolean;
+}
+
 export interface EstuaryConfig {
   /** Base URL of the Estuary server (e.g., "https://api.estuary-ai.com") */
   serverUrl: string;
@@ -33,6 +57,11 @@ export interface EstuaryConfig {
   suppressMicDuringPlayback?: boolean;
   /** Proactively interrupt bot audio when user starts speaking (default: true) */
   autoInterruptOnSpeech?: boolean;
+  /** Override browser mic DSP (AGC / noise suppression / echo cancellation /
+   *  voice isolation). Omit for the standard voice/STT-optimized defaults (all
+   *  enabled). Disable AGC + noiseSuppression + voiceIsolation for raw-audio
+   *  pipelines like SARAH body animation. See {@link AudioProcessingOptions}. */
+  audioProcessing?: AudioProcessingOptions;
   /** Per-session client capability declaration. Tells the server what the device
    *  can physically do (camera, microphone, speaker). When omitted, the server
    *  defaults all fields to true for backward compatibility. Tools requiring a

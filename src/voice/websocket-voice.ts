@@ -1,4 +1,4 @@
-import type { VoiceManager } from '../types';
+import type { VoiceManager, AudioProcessingOptions } from '../types';
 import type { SocketManager } from '../connection/socket-manager';
 import type { Logger } from '../utils/logger';
 import { EstuaryError, ErrorCode } from '../errors';
@@ -17,10 +17,18 @@ export class WebSocketVoiceManager implements VoiceManager {
   private _isSuppressed = false;
   private _isActive = false;
 
-  constructor(socketManager: SocketManager, sampleRate: number, logger: Logger) {
+  private audioProcessing?: AudioProcessingOptions;
+
+  constructor(
+    socketManager: SocketManager,
+    sampleRate: number,
+    logger: Logger,
+    audioProcessing?: AudioProcessingOptions,
+  ) {
     this.socketManager = socketManager;
     this.sampleRate = sampleRate;
     this.logger = logger;
+    this.audioProcessing = audioProcessing;
   }
 
   get isMuted(): boolean {
@@ -46,9 +54,9 @@ export class WebSocketVoiceManager implements VoiceManager {
         audio: {
           sampleRate: this.sampleRate,
           channelCount: 1,
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
+          echoCancellation: this.audioProcessing?.echoCancellation ?? true,
+          noiseSuppression: this.audioProcessing?.noiseSuppression ?? true,
+          autoGainControl: this.audioProcessing?.autoGainControl ?? true,
         },
       });
     } catch (err) {

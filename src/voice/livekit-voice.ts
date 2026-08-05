@@ -1,4 +1,4 @@
-import type { VoiceManager, LiveKitTokenResponse } from '../types';
+import type { VoiceManager, LiveKitTokenResponse, AudioProcessingOptions } from '../types';
 import type { SocketManager } from '../connection/socket-manager';
 import type { Logger } from '../utils/logger';
 import { EstuaryError, ErrorCode } from '../errors';
@@ -19,9 +19,16 @@ export class LiveKitVoiceManager implements VoiceManager {
   private audioLevelPollTimer: ReturnType<typeof setInterval> | null = null;
   private _isBotSpeaking = false;
 
-  constructor(socketManager: SocketManager, logger: Logger) {
+  private audioProcessing?: AudioProcessingOptions;
+
+  constructor(
+    socketManager: SocketManager,
+    logger: Logger,
+    audioProcessing?: AudioProcessingOptions,
+  ) {
     this.socketManager = socketManager;
     this.logger = logger;
+    this.audioProcessing = audioProcessing;
   }
 
   get isMuted(): boolean {
@@ -67,10 +74,15 @@ export class LiveKitVoiceManager implements VoiceManager {
     this.room = new Room({
       adaptiveStream: true,
       dynacast: true,
+      // Mic DSP defaults follow WebRTC best practice (all on) for voice/STT;
+      // consumers feeding raw audio to a model (SARAH body anim) can disable
+      // AGC / noiseSuppression / voiceIsolation via config.audioProcessing while
+      // keeping echoCancellation. Each field defaults to true when unset.
       audioCaptureDefaults: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
+        echoCancellation: this.audioProcessing?.echoCancellation ?? true,
+        noiseSuppression: this.audioProcessing?.noiseSuppression ?? true,
+        autoGainControl: this.audioProcessing?.autoGainControl ?? true,
+        voiceIsolation: this.audioProcessing?.voiceIsolation ?? true,
       },
     });
 
