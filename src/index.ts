@@ -19,6 +19,8 @@ export type {
   SttResponse,
   InterruptData,
   QuotaExceededData,
+  SessionTimeoutData,
+  VoiceTimeoutData,
   LiveKitTokenResponse,
   CameraCaptureRequest,
   CharacterAction,

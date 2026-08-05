@@ -133,17 +133,19 @@ client.on('cameraCaptureRequest', (request) => {
 
 ### Character Actions
 
-Bot responses can include inline action tags (e.g., `<action name="wave" target="user"/>`). The SDK automatically parses these, strips them from `botResponse.text`, and emits `characterAction` events:
+Characters with configured actions trigger them during conversation. The server delivers each action call as a typed `client_action` event (SDK contract v1.9); the SDK emits it as a `characterAction` event as soon as it arrives:
 
 ```typescript
 client.on('characterAction', (action) => {
   console.log(action.name);      // e.g., "wave"
-  console.log(action.params);    // e.g., { target: "user" }
-  console.log(action.messageId); // originating message
+  console.log(action.params);    // e.g., { target: "user" } — values always strings
+  console.log(action.messageId); // correlates with the same turn's botResponse stream
 });
 ```
 
-For non-streaming contexts, use the `parseActions` utility:
+Actions fire on arrival (they are not synchronized to TTS playback position), typically near the end of the turn's text. Parameter values are validated server-side against the character's declared parameter types and arrive stringified in `params`.
+
+Older backends embedded actions as inline `<action name="wave" target="user"/>` tags in the response text. During the deprecation window the SDK still parses stray tags, strips them from `botResponse.text`, and emits the same `characterAction` event for them. For non-streaming contexts, the legacy `parseActions` utility remains available:
 
 ```typescript
 import { parseActions } from '@estuary-ai/sdk';
@@ -290,7 +292,7 @@ client.on('botResponse', (response) => { /* streaming text (actions auto-strippe
 client.on('botVoice', (voice) => { /* audio chunk */ });
 client.on('sttResponse', (stt) => { /* speech-to-text transcript */ });
 client.on('interrupt', (data) => { /* response interrupted */ });
-client.on('characterAction', (action) => { /* parsed action from bot response */ });
+client.on('characterAction', (action) => { /* character action (typed client_action event) */ });
 client.on('cameraCaptureRequest', (request) => { /* server requests a camera image */ });
 
 // Scripted lines (playScript / sayLines)
@@ -362,6 +364,8 @@ interface EstuaryConfig {
   realtimeMemory?: boolean;    // Enable real-time memory extraction events. Default: false
   suppressMicDuringPlayback?: boolean; // Mute mic while bot audio plays (software AEC). Default: false
   autoInterruptOnSpeech?: boolean;     // Interrupt bot audio when user speaks. Default: true
+  manageBrowserLifecycle?: boolean;    // Release voice on page hide, resume on page show. Default: true
+  resumeVoiceOnReconnect?: boolean;    // Restart voice after an unexpected disconnect + reconnect. Default: true
   capabilities?: SessionCapabilities;  // Per-session device capability declaration
 }
 
@@ -389,6 +393,12 @@ const client = new EstuaryClient({
   },
 });
 ```
+
+### Page Lifecycle (browsers)
+
+By default the SDK manages the browser page lifecycle for voice sessions. When the page is hidden or dismissed (home button, tab switch, iOS App Clip close), voice is released — the LiveKit room is left so character audio and billing stop immediately. When the page becomes visible again, voice resumes automatically, reconnecting the socket first when the backgrounded one has gone stale. The same applies to unexpected disconnects: voice restarts once the connection is re-established.
+
+`voiceStopped`/`voiceStarted` events fire on these transitions, so apps can keep UI state (mute buttons, indicators) in sync. Note the resumed mic comes up unmuted — re-apply your mute state in a `voiceStarted` handler if your UI has one. Set `manageBrowserLifecycle: false` and/or `resumeVoiceOnReconnect: false` to handle these yourself.
 
 ## Runtime Properties
 

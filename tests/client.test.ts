@@ -59,6 +59,96 @@ describe('EstuaryClient', () => {
     expect(client.isVoiceActive).toBe(false);
   });
 
+  it('releases voice resources when the server ends the session', async () => {
+    const handlers: Record<string, (...args: unknown[]) => void> = {};
+    mockSocket.on.mockImplementation((event: string, handler: (...args: unknown[]) => void) => {
+      handlers[event] = handler;
+    });
+
+    const connectPromise = client.connect();
+    handlers['connect']();
+    handlers['session_info']({
+      session_id: 'sess-1',
+      conversation_id: 'conv-1',
+      character_id: 'char-123',
+      player_id: 'player-456',
+    });
+    await connectPromise;
+
+    // Simulate voice active when the idle reap hits (only voice sessions are reaped)
+    const fakeManager = {
+      isActive: true,
+      stop: vi.fn().mockResolvedValue(undefined),
+      dispose: vi.fn(),
+    };
+    (client as unknown as { voiceManager: unknown }).voiceManager = fakeManager;
+
+    const voiceStopped = vi.fn();
+    const sessionTimeout = vi.fn();
+    client.on('voiceStopped', voiceStopped);
+    client.on('sessionTimeout', sessionTimeout);
+
+    handlers['session_timeout']({ reason: 'inactivity', idle_seconds: 600, timeout_seconds: 600 });
+    await vi.waitFor(() => expect(fakeManager.dispose).toHaveBeenCalled());
+
+    expect(fakeManager.stop).toHaveBeenCalled();
+    expect(client.isVoiceActive).toBe(false);
+    expect(sessionTimeout).toHaveBeenCalled();
+    expect(voiceStopped).toHaveBeenCalled();
+  });
+
+  it('releases voice but keeps the connection on voice_timeout (auto-mute illusion)', async () => {
+    const handlers: Record<string, (...args: unknown[]) => void> = {};
+    mockSocket.on.mockImplementation((event: string, handler: (...args: unknown[]) => void) => {
+      handlers[event] = handler;
+    });
+
+    const connectPromise = client.connect();
+    handlers['connect']();
+    handlers['session_info']({
+      session_id: 'sess-1',
+      conversation_id: 'conv-1',
+      character_id: 'char-123',
+      player_id: 'player-456',
+    });
+    await connectPromise;
+
+    // A live call whose room the server just deleted for voice inactivity
+    const fakeManager = {
+      isActive: true,
+      stop: vi.fn().mockResolvedValue(undefined),
+      dispose: vi.fn(),
+    };
+    (client as unknown as { voiceManager: unknown }).voiceManager = fakeManager;
+
+    const voiceStopped = vi.fn();
+    const voiceTimeout = vi.fn();
+    client.on('voiceStopped', voiceStopped);
+    client.on('voiceTimeout', voiceTimeout);
+
+    handlers['voice_timeout']({
+      reason: 'voice_inactivity',
+      idle_seconds: 600,
+      timeout_seconds: 600,
+    });
+    await vi.waitFor(() => expect(fakeManager.dispose).toHaveBeenCalled());
+
+    // Mic released so the next startVoice() (the unmute path) works cleanly
+    expect(fakeManager.stop).toHaveBeenCalled();
+    expect(client.isVoiceActive).toBe(false);
+    expect(voiceStopped).toHaveBeenCalled();
+    expect(voiceTimeout).toHaveBeenCalledWith({
+      reason: 'voice_inactivity',
+      idleSeconds: 600,
+      timeoutSeconds: 600,
+    });
+
+    // Unlike session_timeout, the socket stays connected — text continues
+    expect(client.isConnected).toBe(true);
+    expect(mockSocket.disconnect).not.toHaveBeenCalled();
+    expect(() => client.sendText('still texting')).not.toThrow();
+  });
+
   it('should connect and forward events', async () => {
     const handlers: Record<string, (...args: unknown[]) => void> = {};
     mockSocket.on.mockImplementation((event: string, handler: (...args: unknown[]) => void) => {
@@ -114,6 +204,94 @@ describe('EstuaryClient', () => {
 
     expect(memoryFn).toHaveBeenCalledOnce();
     expect(memoryFn.mock.calls[0][0].agentId).toBe('agent-A');
+  });
+
+  it('emits characterAction from typed client_action events (contract v1.9)', async () => {
+    const handlers: Record<string, (...args: unknown[]) => void> = {};
+    mockSocket.on.mockImplementation((event: string, handler: (...args: unknown[]) => void) => {
+      handlers[event] = handler;
+    });
+
+    const actionFn = vi.fn();
+    client.on('characterAction', actionFn);
+
+    const connectPromise = client.connect();
+    handlers['connect']();
+    handlers['session_info']({
+      session_id: 'sess-1',
+      conversation_id: 'conv-1',
+      character_id: 'char-123',
+      player_id: 'player-456',
+    });
+    await connectPromise;
+
+    handlers['client_action']({
+      name: 'wave hello',
+      arguments: { target: 'user', speed: 2, excited: true },
+      message_id: 'msg-1',
+      chunk_index: 3,
+      timestamp: '2026-07-24T00:00:00Z',
+    });
+
+    // Same public shape as the legacy text-tag path: params values are
+    // stringified so consumers keep receiving Record<string, string>.
+    expect(actionFn).toHaveBeenCalledOnce();
+    expect(actionFn.mock.calls[0][0]).toEqual({
+      name: 'wave hello',
+      params: { target: 'user', speed: '2', excited: 'true' },
+      messageId: 'msg-1',
+    });
+
+    // Parameterless action → empty params object
+    handlers['client_action']({
+      name: 'sit',
+      arguments: {},
+      message_id: 'msg-2',
+      chunk_index: 0,
+      timestamp: '2026-07-24T00:00:01Z',
+    });
+    expect(actionFn).toHaveBeenCalledTimes(2);
+    expect(actionFn.mock.calls[1][0]).toEqual({ name: 'sit', params: {}, messageId: 'msg-2' });
+  });
+
+  it('still strips stray legacy <action/> tags from bot_response text (dormant parser)', async () => {
+    const handlers: Record<string, (...args: unknown[]) => void> = {};
+    mockSocket.on.mockImplementation((event: string, handler: (...args: unknown[]) => void) => {
+      handlers[event] = handler;
+    });
+
+    const actionFn = vi.fn();
+    const responseFn = vi.fn();
+    client.on('characterAction', actionFn);
+    client.on('botResponse', responseFn);
+
+    const connectPromise = client.connect();
+    handlers['connect']();
+    handlers['session_info']({
+      session_id: 'sess-1',
+      conversation_id: 'conv-1',
+      character_id: 'char-123',
+      player_id: 'player-456',
+    });
+    await connectPromise;
+
+    handlers['bot_response']({
+      text: 'Sure thing! <action name="wave" target="user"/>',
+      is_final: true,
+      partial: '',
+      message_id: 'msg-1',
+      chunk_index: 0,
+      is_interjection: false,
+    });
+
+    expect(responseFn).toHaveBeenCalledOnce();
+    expect(responseFn.mock.calls[0][0].text).toBe('Sure thing!');
+    expect(actionFn).toHaveBeenCalledOnce();
+    expect(actionFn.mock.calls[0][0]).toEqual({
+      name: 'wave',
+      params: { target: 'user' },
+      messageId: 'msg-1',
+    });
   });
 
   it('should disconnect cleanly', async () => {

@@ -28,6 +28,11 @@ import { ScriptPlayer, type ScriptHost } from './scripting/script-player';
 const DEFAULT_SAMPLE_RATE = 24000;
 const REST_UNAVAILABLE_MESSAGE =
   'REST API not available with session token auth. Use a server-side proxy for REST calls.';
+// After this long hidden, a socket that still reports connected is treated as
+// a zombie: past the server's Engine.IO ping window (~45s of silence) the
+// server side is gone, but a page resumed from iOS suspension only finds out
+// on its next overdue ping. Resume over a fresh connection instead.
+const STALE_SOCKET_AFTER_HIDDEN_MS = 30_000;
 
 export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
   private config: EstuaryConfig;
@@ -43,6 +48,19 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
   private _autoInterruptGraceTimer: ReturnType<typeof setTimeout> | null = null;
   private _isLiveKitSpeaking = false;
   private _activeScript: ScriptPlayer | null = null;
+  // Warn once per client about bot audio that arrived over a transport we
+  // cannot play, rather than once per chunk.
+  private _warnedUnplayableAudio = false;
+  // Voice was active when the socket unexpectedly dropped — restart it after
+  // the next successful (re)connect.
+  private _resumeVoiceOnReconnect = false;
+  // Page-lifecycle state (browser only): voice was active when the page was
+  // hidden (home button, tab switch, App Clip dismissal) and should resume
+  // when the page becomes visible again.
+  private _voiceActiveBeforeHide = false;
+  private _hiddenAtMs = 0;
+  private _resumingVoice = false;
+  private _lifecycleBound = false;
 
   constructor(config: EstuaryConfig) {
     super();
@@ -58,6 +76,7 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
     this.logger = new Logger(config.debug ?? false);
     this.socketManager = new SocketManager(config, this.logger);
     this.forwardSocketEvents();
+    this.bindPageLifecycle();
 
     // REST clients require an apiKey. Session-token flows (share links) must
     // use a server-side proxy for any REST calls.
@@ -134,6 +153,8 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
   /** Disconnect from the server */
   async disconnect(): Promise<void> {
     this.logger.info('Disconnecting...');
+    this._resumeVoiceOnReconnect = false;
+    this._voiceActiveBeforeHide = false;
     if (this._activeScript && this._activeScript.state !== 'done') {
       this._activeScript.stop();
     }
@@ -369,6 +390,135 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
     }
   }
 
+  /**
+   * Tear down voice state without requiring an active manager — used when the
+   * server ends the session out from under us. Unlike stopVoice(), this also
+   * disposes a manager whose transport already died (LiveKit room deleted →
+   * isActive is false but the local mic track was never released).
+   */
+  private async releaseVoice(): Promise<void> {
+    const manager = this.voiceManager;
+    this.voiceManager = null;
+    this._isLiveKitSpeaking = false;
+    this.audioPlayer?.clear();
+    if (!manager) return;
+    try {
+      if (manager.isActive) await manager.stop();
+    } catch {
+      // Server already tore the session down — continue local cleanup.
+    }
+    manager.dispose();
+    this.emit('voiceStopped');
+  }
+
+  // ─── Page Lifecycle (browser only) ───────────────────────────
+  //
+  // Without this, backgrounding the page (home button, tab switch, App Clip
+  // dismissal) leaves the LiveKit room joined: the bot's WebRTC <audio>
+  // element keeps playing — iOS keeps pages with active audio running in the
+  // background, so the character audibly keeps talking — and the room bills
+  // connection-minutes until the server reaper fires. Hide → release voice
+  // (livekit_leave rides the still-open socket, so the server deletes the
+  // room immediately); show → resume voice, over a fresh connection when the
+  // suspended socket can no longer be trusted.
+
+  private readonly onVisibilityChange = (): void => {
+    if (document.visibilityState === 'hidden') {
+      this.handlePageHidden();
+    } else {
+      this.handlePageVisible();
+    }
+  };
+  private readonly onPageHide = (): void => this.handlePageHidden();
+  private readonly onPageShow = (): void => this.handlePageVisible();
+
+  private bindPageLifecycle(): void {
+    if (this.config.manageBrowserLifecycle === false) return;
+    if (typeof document === 'undefined' || typeof window === 'undefined') return;
+    document.addEventListener('visibilitychange', this.onVisibilityChange);
+    window.addEventListener('pagehide', this.onPageHide);
+    window.addEventListener('pageshow', this.onPageShow);
+    this._lifecycleBound = true;
+  }
+
+  private unbindPageLifecycle(): void {
+    if (!this._lifecycleBound) return;
+    document.removeEventListener('visibilitychange', this.onVisibilityChange);
+    window.removeEventListener('pagehide', this.onPageHide);
+    window.removeEventListener('pageshow', this.onPageShow);
+    this._lifecycleBound = false;
+  }
+
+  private handlePageHidden(): void {
+    if (!this.voiceManager?.isActive) return;
+    this._voiceActiveBeforeHide = true;
+    this._hiddenAtMs = Date.now();
+    // releaseVoice's synchronous prefix emits livekit_leave and starts the
+    // room disconnect — the parts that must land before iOS suspends the
+    // page. The rest completes in microtasks if the page survives.
+    void this.releaseVoice();
+  }
+
+  private handlePageVisible(): void {
+    if (!this._voiceActiveBeforeHide || this._resumingVoice) return;
+    this._voiceActiveBeforeHide = false;
+    this._resumingVoice = true;
+    void this.resumeVoiceAfterHide().finally(() => {
+      this._resumingVoice = false;
+    });
+  }
+
+  private async resumeVoiceAfterHide(): Promise<void> {
+    try {
+      const hiddenMs = Date.now() - this._hiddenAtMs;
+      if (this.socketManager.isConnected && hiddenMs >= STALE_SOCKET_AFTER_HIDDEN_MS) {
+        this.socketManager.disconnect();
+      }
+      if (!this.socketManager.isConnected) {
+        await this.connect();
+      }
+      if (!this.voiceManager?.isActive) {
+        await this.startVoice();
+      }
+    } catch {
+      // First attempt likely rode a zombie socket that still reported
+      // connected — retry once over a guaranteed-fresh connection.
+      try {
+        this.socketManager.disconnect();
+        await this.connect();
+        if (!this.voiceManager?.isActive) {
+          await this.startVoice();
+        }
+      } catch (err) {
+        this.emit('error', new EstuaryError(
+          ErrorCode.CONNECTION_FAILED,
+          'Failed to resume voice after returning to the page',
+          err,
+        ));
+        return;
+      }
+    }
+    // The page may have been hidden again mid-resume — don't leave a billed
+    // call running in the background.
+    if (
+      typeof document !== 'undefined' &&
+      document.visibilityState === 'hidden' &&
+      this.voiceManager?.isActive
+    ) {
+      this.handlePageHidden();
+    }
+  }
+
+  /**
+   * Permanently dispose this client: disconnects and unbinds the browser
+   * page-lifecycle listeners. Use when discarding the instance for good —
+   * a disposed client no longer releases/resumes voice on page hide/show.
+   */
+  async dispose(): Promise<void> {
+    this.unbindPageLifecycle();
+    await this.disconnect();
+  }
+
   /** Toggle microphone mute */
   toggleMute(): void {
     if (!this.voiceManager?.isActive) {
@@ -462,11 +612,39 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
     // Forward all socket manager events to this client's event emitter
     this.socketManager.on('connected', (session) => {
       this._sessionInfo = session;
+      const resumeVoice = this._resumeVoiceOnReconnect && !this._resumingVoice;
+      this._resumeVoiceOnReconnect = false;
       this.emit('connected', session);
+      if (resumeVoice && !this.voiceManager?.isActive) {
+        void this.startVoice().catch((err) => {
+          this.emit('error', new EstuaryError(
+            ErrorCode.CONNECTION_FAILED,
+            'Failed to resume voice after reconnect',
+            err,
+          ));
+        });
+      }
     });
     this.socketManager.on('disconnected', (reason) => {
       this._sessionInfo = null;
       this.actionParsers.clear();
+      // A dropped transport orphans the voice session: the server-side
+      // session (and its LiveKit room) died with the socket, but the local
+      // manager stays isActive — mic hot, and the next startVoice() throws
+      // VOICE_ALREADY_ACTIVE. Release it, and if the drop was unexpected,
+      // arrange to restart voice after the next successful (re)connect.
+      // (session_timeout/voice_timeout already nulled the manager
+      // synchronously, so an idle reap never sets the resume flag here.)
+      const voiceWasActive = this.voiceManager?.isActive ?? false;
+      void this.releaseVoice();
+      if (
+        voiceWasActive &&
+        reason !== 'manual' &&
+        reason !== 'io server disconnect' &&
+        (this.config.resumeVoiceOnReconnect ?? true)
+      ) {
+        this._resumeVoiceOnReconnect = true;
+      }
       this.emit('disconnected', reason);
     });
     this.socketManager.on('reconnecting', (attempt) => this.emit('reconnecting', attempt));
@@ -491,7 +669,27 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
     this.socketManager.on('error', (error) => this.emit('error', error));
     this.socketManager.on('authError', (error) => this.emit('authError', error));
     this.socketManager.on('quotaExceeded', (data) => this.emit('quotaExceeded', data));
+    this.socketManager.on('sessionTimeout', (data) => {
+      // The server ended the session (idle reap) and disconnects right after.
+      // Release voice resources now: a stale WebSocket manager stays isActive
+      // (mic hot, next startVoice throws VOICE_ALREADY_ACTIVE) and a dead
+      // LiveKit manager is never disposed. Resume = connect() + startVoice().
+      void this.releaseVoice();
+      this.emit('sessionTimeout', data);
+    });
+    this.socketManager.on('voiceTimeout', (data) => {
+      // The server released the call's voice resources after voice inactivity
+      // (room already deleted server-side) while keeping the socket — text
+      // chat continues. Release local voice state (mic off, transport
+      // disposed; also emits voiceStopped). Apps can present this as an
+      // auto-muted microphone and call startVoice() when the user unmutes.
+      void this.releaseVoice();
+      this.emit('voiceTimeout', data);
+    });
     this.socketManager.on('cameraCaptureRequest', (request) => this.emit('cameraCaptureRequest', request));
+    // Typed client_action events (contract v1.9) — same public characterAction
+    // event as the legacy text-tag path, so integrators see no API change.
+    this.socketManager.on('characterAction', (action) => this.emit('characterAction', action));
     this.socketManager.on('livekitConnected', (room) => this.emit('livekitConnected', room));
     this.socketManager.on('livekitDisconnected', () => this.emit('livekitDisconnected'));
     this.socketManager.on('memoryUpdated', (event) => this.emit('memoryUpdated', event));
@@ -500,7 +698,12 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
   private handleBotResponse(response: BotResponse): void {
     const { messageId } = response;
 
-    // Get or create a parser for this message stream
+    // Legacy inline <action/> tag parsing (pre-contract-v1.9). Actions now
+    // arrive as typed client_action events (see forwardSocketEvents); the
+    // server no longer instructs models to emit tags, so this parser is
+    // dormant — but models may still emit stray tags, and we keep stripping
+    // them from the displayed text (and firing characterAction if one slips
+    // through). Remove after the deprecation window.
     if (!this.actionParsers.has(messageId)) {
       this.actionParsers.set(messageId, new StreamingActionParser());
     }
@@ -534,7 +737,21 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
     this.emit('botVoice', voice);
     if (voice.audio) {
       // WebSocket transport — real audio data, AudioPlayer handles full lifecycle
-      this.audioPlayer?.enqueue(voice);
+      if (this.audioPlayer) {
+        this.audioPlayer.enqueue(voice);
+      } else if (!this._warnedUnplayableAudio) {
+        // The server only sends audio-bearing bot_voice over Socket.IO when its
+        // LiveKit send failed and it fell back. In LiveKit mode there is no
+        // AudioPlayer (an AudioContext would compete with the WebRTC track for
+        // mobile audio resources), so that fallback is silently inaudible —
+        // which reads as the character skipping part of a line. Say so once.
+        this._warnedUnplayableAudio = true;
+        this.logger.warn(
+          'Received bot_voice audio with no AudioPlayer (LiveKit transport) — ' +
+            'the server fell back to Socket.IO audio delivery and this audio ' +
+            'cannot be played. Check the gateway for "LiveKit audio send failed".',
+        );
+      }
       // Compute and emit audio level from PCM data
       this.emit('botAudioLevel', this.computeAudioLevel(voice.audio));
     }

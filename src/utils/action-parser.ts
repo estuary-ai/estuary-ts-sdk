@@ -3,6 +3,11 @@
  *
  * Designed for streaming: call `parse()` with the accumulated text on each
  * chunk and it returns only newly-discovered actions since the last call.
+ *
+ * LEGACY (contract v1.9): the server now delivers actions as typed
+ * `client_action` events and no longer instructs models to emit tags. This
+ * parser stays during the deprecation window to strip stray tags from
+ * displayed text (and fire characterAction if one slips through).
  */
 
 export interface ParsedAction {

@@ -1,6 +1,6 @@
 {
   "name": "@estuary-ai/sdk",
-  "version": "0.5.0",
+  "version": "0.9.0",
   "description": "Web SDK for the Estuary real-time AI conversation platform",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",

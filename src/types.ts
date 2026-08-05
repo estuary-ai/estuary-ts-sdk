@@ -62,6 +62,18 @@ export interface EstuaryConfig {
    *  enabled). Disable AGC + noiseSuppression + voiceIsolation for raw-audio
    *  pipelines like SARAH body animation. See {@link AudioProcessingOptions}. */
   audioProcessing?: AudioProcessingOptions;
+  /** Manage the browser page lifecycle (default: true; no-op outside browsers).
+   *  When the page is hidden or dismissed (home button, tab switch, App Clip
+   *  close), voice is released — the LiveKit room is left server-side so audio
+   *  and billing stop — and when the page becomes visible again, voice resumes
+   *  automatically (reconnecting the socket first if the suspended one went
+   *  stale). Set false to manage backgrounding yourself. */
+  manageBrowserLifecycle?: boolean;
+  /** Restart voice automatically after an unexpected disconnect once the
+   *  connection is re-established, if voice was active when it dropped
+   *  (default: true). Server-initiated disconnects (idle reap, quota) never
+   *  auto-resume regardless of this flag. */
+  resumeVoiceOnReconnect?: boolean;
   /** Per-session client capability declaration. Tells the server what the device
    *  can physically do (camera, microphone, speaker). When omitted, the server
    *  defaults all fields to true for backward compatibility. Tools requiring a
@@ -72,7 +84,12 @@ export interface EstuaryConfig {
 
 export type VoiceTransport = 'websocket' | 'livekit' | 'auto';
 
-/** Per-session client capability declaration. Pass on `EstuaryConfig.capabilities`. */
+/** Per-session *device* capability declaration. Pass on `EstuaryConfig.capabilities`.
+ *
+ *  Protocol capabilities are not part of this interface. The SDK adds
+ *  `client_action: true` to the wire payload itself (see socket-manager), since
+ *  whether this build understands typed `client_action` events is a fact about
+ *  the SDK, not a choice the app gets to make. */
 export interface SessionCapabilities {
   /** Schema version. Defaults to "1" when omitted. */
   version?: string;
@@ -181,6 +198,20 @@ export interface WireQuotaExceededData {
 }
 
 /** @internal */
+export interface WireSessionTimeoutData {
+  reason: string;
+  idle_seconds: number;
+  timeout_seconds: number;
+}
+
+/** @internal */
+export interface WireVoiceTimeoutData {
+  reason: string;
+  idle_seconds: number;
+  timeout_seconds: number;
+}
+
+/** @internal */
 export interface WireLiveKitTokenResponse {
   token: string;
   url: string;
@@ -201,6 +232,18 @@ export interface WireMemoryUpdated {
   facts_extracted: number;
   conversation_id: string;
   new_memories: MemoryData[];
+  timestamp: string;
+}
+
+/** @internal — typed client_action event (SDK_CONTRACT.md v1.9, SCRUM-202) */
+export interface WireClientAction {
+  name: string;
+  /** Validated server-side against the character's declared parameter types. */
+  arguments: Record<string, string | number | boolean>;
+  message_id: string;
+  /** Sentence counter when the action was emitted; not needed for correct behavior. */
+  chunk_index: number;
+  /** ISO 8601 server emit time. */
   timestamp: string;
 }
 
@@ -288,6 +331,36 @@ export interface QuotaExceededData {
   limit: number;
   remaining: number;
   tier: string;
+}
+
+/**
+ * Emitted when the server ends the session due to inactivity (no conversation
+ * activity for the server's idle timeout). The server disconnects the socket
+ * right after; the SDK does not auto-reconnect from this — call connect()
+ * again on explicit user intent to resume.
+ */
+export interface SessionTimeoutData {
+  reason: string;
+  idleSeconds: number;
+  timeoutSeconds: number;
+}
+
+/**
+ * Emitted when the server releases the CALL's voice resources after voice
+ * inactivity (no user speech for the server's voice-idle timeout) while the
+ * session itself stays connected — e.g. the user kept texting with a silent
+ * call open. The LiveKit room is already deleted server-side; the SDK has
+ * released the microphone and disposed the voice transport (voiceStopped is
+ * also emitted). The socket remains connected and text chat continues.
+ *
+ * Recommended UX: present this as an auto-muted microphone rather than a
+ * dropped call — keep the call UI open, show the mic as muted, and call
+ * startVoice() again when the user unmutes.
+ */
+export interface VoiceTimeoutData {
+  reason: string;
+  idleSeconds: number;
+  timeoutSeconds: number;
 }
 
 export interface LiveKitTokenResponse {
@@ -459,6 +532,24 @@ export function toQuotaExceededData(wire: WireQuotaExceededData): QuotaExceededD
 }
 
 /** @internal */
+export function toSessionTimeoutData(wire: WireSessionTimeoutData): SessionTimeoutData {
+  return {
+    reason: wire.reason,
+    idleSeconds: wire.idle_seconds,
+    timeoutSeconds: wire.timeout_seconds,
+  };
+}
+
+/** @internal */
+export function toVoiceTimeoutData(wire: WireVoiceTimeoutData): VoiceTimeoutData {
+  return {
+    reason: wire.reason,
+    idleSeconds: wire.idle_seconds,
+    timeoutSeconds: wire.timeout_seconds,
+  };
+}
+
+/** @internal */
 export function toLiveKitTokenResponse(wire: WireLiveKitTokenResponse): LiveKitTokenResponse {
   return {
     token: wire.token,
@@ -472,6 +563,21 @@ export function toCameraCaptureRequest(wire: WireCameraCaptureRequest): CameraCa
   return {
     requestId: wire.request_id,
     text: wire.text,
+  };
+}
+
+/** @internal — argument values are stringified so `params` stays
+ *  Record<string, string>, matching the legacy XML-attribute behavior
+ *  (no type change for characterAction consumers). */
+export function toCharacterAction(wire: WireClientAction): CharacterAction {
+  const params: Record<string, string> = {};
+  for (const [key, value] of Object.entries(wire.arguments ?? {})) {
+    params[key] = String(value); // numbers via String(), booleans → "true"/"false"
+  }
+  return {
+    name: wire.name,
+    params,
+    messageId: wire.message_id,
   };
 }
 
@@ -513,12 +619,18 @@ export interface ShareOpenResponse {
 
 // ─── Character Actions ───────────────────────────────────────────
 
+/**
+ * A character-defined in-world action, emitted as a `characterAction` event.
+ * Delivered by the server as a typed `client_action` event (contract v1.9);
+ * the legacy inline `<action/>` text-tag parser also produces these while it
+ * remains during the deprecation window.
+ */
 export interface CharacterAction {
   /** Action name (e.g., "follow_user", "sit", "look_at") */
   name: string;
-  /** Action parameters as key-value pairs */
+  /** Action parameters as key-value pairs (values always strings) */
   params: Record<string, string>;
-  /** Message ID of the bot response that contained this action */
+  /** Message ID of the bot response turn that contained this action */
   messageId: string;
 }
 
@@ -581,6 +693,8 @@ export type EstuaryEventMap = {
   error: (error: Error) => void;
   authError: (error: string) => void;
   quotaExceeded: (data: QuotaExceededData) => void;
+  sessionTimeout: (data: SessionTimeoutData) => void;
+  voiceTimeout: (data: VoiceTimeoutData) => void;
   cameraCaptureRequest: (request: CameraCaptureRequest) => void;
   characterAction: (action: CharacterAction) => void;
   voiceStarted: () => void;
