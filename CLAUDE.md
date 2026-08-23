@@ -110,14 +110,22 @@ Key wire types to know:
 
 ## Build Commands
 
+**Use npm here, not pnpm** — despite the repo-wide pnpm convention. `package-lock.json` is the live lockfile; the committed `pnpm-lock.yaml` is a stale leftover (last updated ~7 weeks earlier). Running `pnpm install` will thrash the tree.
+
 ```bash
-npm install          # Install dependencies
-npm run build        # Build with tsup (ESM + CJS + types)
-npm run typecheck    # TypeScript type check
-npm run test         # Run vitest tests
-npm run lint         # ESLint
-npm run format       # Prettier
+npm install            # Install dependencies
+npm run build          # Build with tsup (ESM + CJS + types)
+npm run typecheck      # TypeScript type check
+npm run test           # Run vitest tests
+npm run test:e2e       # E2E suite (sets ESTUARY_E2E=1, hits a real backend)
+npm run validate:golden # Check the golden wire fixture still matches
+npm run lint           # ESLint
+npm run format         # Prettier
 ```
+
+### Repo hygiene warning
+
+This repo has **no `.gitignore`**, and as a result ~3,000 `node_modules/` files plus `dist/` are tracked in git. Two consequences: `git add -A` will sweep in dependency churn, and a `git grep` will return hits from inside third-party packages. Scope both to `src/` and `tests/`. Adding a `.gitignore` and untracking those paths is worth doing, but it is a large, disruptive commit — do it deliberately, not as a side effect of another change.
 
 ## Code Style
 
