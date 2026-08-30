@@ -1,0 +1,38 @@
+# Normalize line endings.
+#
+# This repo is checked out on a Windows drive under WSL, which rewrites files
+# with CRLF and makes `git status` report thousands of files as modified when
+# nothing has actually changed. With `text=auto` git stores LF in the
+# repository, and `eol=lf` checks LF back out, so the working tree and the
+# index agree regardless of platform.
+* text=auto eol=lf
+
+# Windows-native scripts genuinely need CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+*.sh text eol=lf
+
+# node_modules and dist/ are tracked in this repo (they should not be — see
+# CLAUDE.md). Marking them generated keeps them out of diffs and off GitHub's
+# language stats; it does not untrack them.
+node_modules/** linguist-vendored -diff
+dist/**         linguist-generated -diff
+
+# Binary assets.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.pdf  binary
+*.woff binary
+*.woff2 binary
+*.ttf  binary
+*.otf  binary
+*.mp4  binary
+*.mp3  binary
+*.wav  binary
+*.zip  binary
+*.node binary
