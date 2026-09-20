@@ -10,18 +10,17 @@ export class CharacterClient {
 
   /** Fetch character details including 3D model and avatar URLs. */
   async getCharacter(characterId: string): Promise<CharacterInfo> {
-    // Stays on the legacy route: the v1 CharacterResponse has no source image URL,
-    // so CharacterInfo.sourceImageUrl cannot be filled from /api/v1/characters/{id}.
-    const raw = await this.rest.get<Record<string, unknown>>(`/api/agents/${characterId}`);
+    // The v1 CharacterResponse is snake_case; map it onto the camelCase public type.
+    const raw = await this.rest.get<Record<string, unknown>>(`/api/v1/characters/${characterId}`);
     return {
       id: raw.id as string,
       name: raw.name as string,
       tagline: (raw.tagline as string) ?? null,
       avatar: (raw.avatar as string) ?? null,
-      modelUrl: (raw.modelUrl as string) ?? null,
-      modelPreviewUrl: (raw.modelPreviewUrl as string) ?? null,
-      modelStatus: (raw.modelStatus as string) ?? null,
-      sourceImageUrl: (raw.sourceImageUrl as string) ?? null,
+      modelUrl: (raw.model_url as string) ?? null,
+      modelPreviewUrl: (raw.model_preview_url as string) ?? null,
+      modelStatus: (raw.model_status as string) ?? null,
+      sourceImageUrl: (raw.source_image_url as string) ?? null,
     };
   }
 

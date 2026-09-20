@@ -38,13 +38,7 @@ const fixture: Fixture | null = existsSync(FIXTURE_PATH)
  * instead. The test asserts the documented legacy request, so closing the gap
  * without removing the entry here fails loudly.
  */
-const KNOWN_GAPS: Record<string, { path: string; reason: string }> = {
-  'characters.get': {
-    path: '/api/agents/char_123',
-    reason:
-      'v1 CharacterResponse has no source image URL, so CharacterInfo.sourceImageUrl cannot be mapped',
-  },
-};
+const KNOWN_GAPS: Record<string, { path: string; reason: string }> = {};
 
 const SERVER = 'https://api.example.com';
 const API_KEY = 'est_conformance';

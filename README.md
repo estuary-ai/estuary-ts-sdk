@@ -179,7 +179,7 @@ for (const hit of results) {
 }
 ```
 
-These call the public REST API under `/api/v1/characters/{characterId}/players/{playerId}/memories`. Every REST request carries an `X-Estuary-Client: estuary-ts-sdk/<version>` header (the version is also exported as `SDK_VERSION`).
+These call the public REST API under `/api/v1/characters/{characterId}/players/{playerId}/memories`, and `getCharacter()` calls `GET /api/v1/characters/{characterId}`. Every REST request carries an `X-Estuary-Client: estuary-ts-sdk/<version>` header (the version is also exported as `SDK_VERSION`).
 
 ### Real-Time Memory Extraction
 
