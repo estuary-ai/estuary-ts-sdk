@@ -10,6 +10,8 @@ export class CharacterClient {
 
   /** Fetch character details including 3D model and avatar URLs. */
   async getCharacter(characterId: string): Promise<CharacterInfo> {
+    // Stays on the legacy route: the v1 CharacterResponse has no source image URL,
+    // so CharacterInfo.sourceImageUrl cannot be filled from /api/v1/characters/{id}.
     const raw = await this.rest.get<Record<string, unknown>>(`/api/agents/${characterId}`);
     return {
       id: raw.id as string,

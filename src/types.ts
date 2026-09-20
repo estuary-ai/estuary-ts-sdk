@@ -562,7 +562,9 @@ export interface MemoryListOptions {
   status?: string;
   limit?: number;
   offset?: number;
+  /** @deprecated Never honoured by the gateway; no longer sent. */
   sortBy?: 'created_at' | 'confidence' | 'last_accessed_at';
+  /** @deprecated Never honoured by the gateway; no longer sent. */
   sortOrder?: 'asc' | 'desc';
 }
 
@@ -652,8 +654,16 @@ export interface MemoryGraphResponse {
   stale?: boolean;
 }
 
+/** One semantic search hit, exactly as the gateway returns it. */
+export interface MemorySearchResult {
+  memoryId: string;
+  /** Similarity to the query (higher is closer). */
+  similarity: number;
+  content: string;
+}
+
 export interface MemorySearchResponse {
-  results: { memory: MemoryData; score: number; similarityScore: number }[];
+  results: MemorySearchResult[];
   query: string;
   total: number;
 }

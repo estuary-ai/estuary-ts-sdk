@@ -168,11 +168,18 @@ console.log(character.name, character.avatar);
 const memories = await client.memory.getMemories({ status: 'active', limit: 50 });
 const facts = await client.memory.getCoreFacts();
 const graph = await client.memory.getGraph({ includeEntities: true });
-const results = await client.memory.search('favorite food');
 const timeline = await client.memory.getTimeline({ groupBy: 'week' });
 const stats = await client.memory.getStats();
 await client.memory.deleteAll(true); // pass true to confirm
+
+// Semantic search (optional second argument: limit, 1 to 50, server default 10)
+const { results } = await client.memory.search('favorite food', 5);
+for (const hit of results) {
+  console.log(hit.memoryId, hit.similarity, hit.content);
+}
 ```
+
+These call the public REST API under `/api/v1/characters/{characterId}/players/{playerId}/memories`. Every REST request carries an `X-Estuary-Client: estuary-ts-sdk/<version>` header (the version is also exported as `SDK_VERSION`).
 
 ### Real-Time Memory Extraction
 
@@ -266,6 +273,8 @@ client.on('authError', (message) => {
   console.error('Authentication failed:', message);
 });
 ```
+
+REST calls (`client.memory.*`, `client.getCharacter()`) reject with `ErrorCode.REST_ERROR`; the HTTP status is in `error.message` and the parsed response body is in `error.details`. An API key that lacks the scope a call needs (for example `memories:read`) gets `403` with `details.detail = { error: 'insufficient_scope', requiredScope: '...' }`. Keys created before scopes existed hold every scope.
 
 ## Configuration
 

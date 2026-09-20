@@ -9,7 +9,8 @@ describe('MemoryClient', () => {
   let client: MemoryClient;
 
   beforeEach(() => {
-    rest = new RestClient('https://api.example.com', 'est_test');
+    vi.clearAllMocks();
+    rest =new RestClient('https://api.example.com', 'est_test');
     client = new MemoryClient(rest, 'agent-123', 'player-456');
   });
 
@@ -20,7 +21,7 @@ describe('MemoryClient', () => {
     const result = await client.getMemories({ status: 'active', limit: 10 });
 
     expect(rest.get).toHaveBeenCalledWith(
-      '/api/agents/agent-123/players/player-456/memories',
+      '/api/v1/characters/agent-123/players/player-456/memories',
       expect.objectContaining({ status: 'active', limit: 10 }),
     );
     expect(result).toEqual(mockResponse);
@@ -33,7 +34,7 @@ describe('MemoryClient', () => {
     await client.getTimeline({ groupBy: 'week' });
 
     expect(rest.get).toHaveBeenCalledWith(
-      '/api/agents/agent-123/players/player-456/memories/timeline',
+      '/api/v1/characters/agent-123/players/player-456/memories/timeline',
       expect.objectContaining({ groupBy: 'week' }),
     );
   });
@@ -42,7 +43,7 @@ describe('MemoryClient', () => {
     vi.mocked(rest.get).mockResolvedValue({});
     await client.getStats();
     expect(rest.get).toHaveBeenCalledWith(
-      '/api/agents/agent-123/players/player-456/memories/stats',
+      '/api/v1/characters/agent-123/players/player-456/memories/stats',
     );
   });
 
@@ -50,7 +51,7 @@ describe('MemoryClient', () => {
     vi.mocked(rest.get).mockResolvedValue({ coreFacts: [] });
     await client.getCoreFacts();
     expect(rest.get).toHaveBeenCalledWith(
-      '/api/agents/agent-123/players/player-456/memories/core-facts',
+      '/api/v1/characters/agent-123/players/player-456/memories/core-facts',
     );
   });
 
@@ -58,25 +59,50 @@ describe('MemoryClient', () => {
     vi.mocked(rest.get).mockResolvedValue({ nodes: [], edges: [], stats: {} });
     await client.getGraph({ includeEntities: true });
     expect(rest.get).toHaveBeenCalledWith(
-      '/api/agents/agent-123/players/player-456/memories/graph',
-      expect.objectContaining({ include_entities: true }),
+      '/api/v1/characters/agent-123/players/player-456/memories/graph',
+      { includeEntities: true },
     );
   });
 
-  it('should call search with query param', async () => {
-    vi.mocked(rest.get).mockResolvedValue({ results: [], query: 'test', total: 0 });
+  it('should not send the sort options the gateway never honoured', async () => {
+    vi.mocked(rest.get).mockResolvedValue({ memories: [], total: 0, limit: 50, offset: 0 });
+    await client.getMemories({ memoryType: 'fact', sortBy: 'confidence', sortOrder: 'asc' });
+    const params = vi.mocked(rest.get).mock.calls[0][1] as Record<string, unknown>;
+    expect(params.memoryType).toBe('fact');
+    expect(params).not.toHaveProperty('sortBy');
+    expect(params).not.toHaveProperty('sortOrder');
+  });
+
+  it('should POST search with a JSON body', async () => {
+    vi.mocked(rest.post).mockResolvedValue({ results: [], query: 'test', total: 0 });
     await client.search('test', 20);
-    expect(rest.get).toHaveBeenCalledWith(
-      '/api/agents/agent-123/players/player-456/memories/search',
-      { q: 'test', limit: 20 },
+    expect(rest.post).toHaveBeenCalledWith(
+      '/api/v1/characters/agent-123/players/player-456/memories/search',
+      { query: 'test', limit: 20 },
     );
+    expect(rest.get).not.toHaveBeenCalled();
+  });
+
+  it('should omit limit from the search body when not given', async () => {
+    vi.mocked(rest.post).mockResolvedValue({ results: [], query: 'test', total: 0 });
+    await client.search('test');
+    expect(rest.post).toHaveBeenCalledWith(
+      '/api/v1/characters/agent-123/players/player-456/memories/search',
+      { query: 'test' },
+    );
+  });
+
+  it('should keep the deleteAll message when the v1 route omits it', async () => {
+    vi.mocked(rest.delete).mockResolvedValue({ deletedCount: 3 });
+    const result = await client.deleteAll(true);
+    expect(result).toEqual({ message: 'Deleted 3 records', deletedCount: 3 });
   });
 
   it('should call deleteAll with confirm param', async () => {
     vi.mocked(rest.delete).mockResolvedValue({ message: 'ok', deletedCount: 5 });
     const result = await client.deleteAll(true);
     expect(rest.delete).toHaveBeenCalledWith(
-      '/api/agents/agent-123/players/player-456/memories',
+      '/api/v1/characters/agent-123/players/player-456/memories',
       { confirm: true },
     );
     expect(result.deletedCount).toBe(5);

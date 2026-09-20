@@ -7,6 +7,7 @@ import { AudioPlayer } from './audio/audio-player';
 import { TypedEventEmitter } from './utils/event-emitter';
 import { Logger } from './utils/logger';
 import { EstuaryError, ErrorCode } from './errors';
+import { CLIENT_HEADER_NAME, CLIENT_HEADER_VALUE } from './version';
 import {
   EstuaryConfig,
   EstuaryEventMap,
@@ -115,7 +116,10 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
     const url = `${serverUrl.replace(/\/+$/, '')}/api/v1/share/${shareId}/open`;
     const res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        [CLIENT_HEADER_NAME]: CLIENT_HEADER_VALUE,
+      },
     });
     if (!res.ok) {
       const detail = await res.text().catch(() => '');
