@@ -13,6 +13,7 @@ export type {
   CharacterInfo,
   BotResponse,
   BotVoice,
+  AudioPlaybackMetadata,
   BotAnimation,
   BotPose,
   BoneQuat,

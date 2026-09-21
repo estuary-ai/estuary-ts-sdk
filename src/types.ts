@@ -278,6 +278,16 @@ export interface BotVoice {
   isLivekit?: boolean;
 }
 
+/** Correlation metadata attached to audio playback lifecycle events.
+ * Diagnostic only: consumers must not use these marks to schedule playback. */
+export interface AudioPlaybackMetadata {
+  transport: 'websocket' | 'livekit';
+  /** Real worker/gateway utterance id when the transport can provide it. */
+  messageId?: string;
+  /** Worker wall-clock mark for the first published TTS PCM chunk. */
+  ttsFirstPcmEpochMs?: number;
+}
+
 export interface BotAnimation {
   messageId: string;
   sequence: number;
@@ -701,7 +711,7 @@ export type EstuaryEventMap = {
   voiceStopped: () => void;
   livekitConnected: (room: string) => void;
   livekitDisconnected: () => void;
-  audioPlaybackStarted: (messageId: string) => void;
+  audioPlaybackStarted: (messageId: string, metadata?: AudioPlaybackMetadata) => void;
   audioPlaybackComplete: (messageId: string) => void;
   /** Bot audio level 0.0–1.0, emitted during playback for both transports. */
   botAudioLevel: (level: number) => void;
@@ -719,7 +729,9 @@ export interface VoiceManager {
   /** Suppress audio sending (software AEC). No-op if not supported. */
   setSuppressed?(suppressed: boolean): void;
   /** Set callback for speaking state from participant attributes (LiveKit only). */
-  setSpeakingStateCallback?(cb: (speaking: boolean) => void): void;
+  setSpeakingStateCallback?(
+    cb: (speaking: boolean, metadata?: AudioPlaybackMetadata) => void,
+  ): void;
   /** Set callback for audio level updates (0-1) during bot speech. */
   setAudioLevelCallback?(cb: (level: number) => void): void;
   readonly isMuted: boolean;

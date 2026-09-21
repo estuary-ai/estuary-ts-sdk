@@ -1,4 +1,9 @@
-import type { VoiceManager, LiveKitTokenResponse, AudioProcessingOptions } from '../types';
+import type {
+  AudioProcessingOptions,
+  AudioPlaybackMetadata,
+  VoiceManager,
+  LiveKitTokenResponse,
+} from '../types';
 import type { SocketManager } from '../connection/socket-manager';
 import type { Logger } from '../utils/logger';
 import { EstuaryError, ErrorCode } from '../errors';
@@ -10,7 +15,10 @@ export class LiveKitVoiceManager implements VoiceManager {
   private _isMuted = false;
   private _isSuppressed = false;
   private _isActive = false;
-  private speakingStateCallback: ((speaking: boolean) => void) | null = null;
+  private speakingStateCallback: ((
+    speaking: boolean,
+    metadata?: AudioPlaybackMetadata,
+  ) => void) | null = null;
   private audioLevelCallback: ((level: number) => void) | null = null;
 
   // Audio level polling (via LiveKit's server-pushed participant.audioLevel)
@@ -18,6 +26,7 @@ export class LiveKitVoiceManager implements VoiceManager {
   private smoothedAudioLevel = 0;
   private audioLevelPollTimer: ReturnType<typeof setInterval> | null = null;
   private _isBotSpeaking = false;
+  private speakingMetadata: AudioPlaybackMetadata = { transport: 'livekit' };
 
   private audioProcessing?: AudioProcessingOptions;
 
@@ -39,7 +48,9 @@ export class LiveKitVoiceManager implements VoiceManager {
     return this._isActive;
   }
 
-  setSpeakingStateCallback(cb: (speaking: boolean) => void): void {
+  setSpeakingStateCallback(
+    cb: (speaking: boolean, metadata?: AudioPlaybackMetadata) => void,
+  ): void {
     this.speakingStateCallback = cb;
   }
 
@@ -126,7 +137,7 @@ export class LiveKitVoiceManager implements VoiceManager {
       this.stopAudioLevelPolling();
       this.botParticipant = null;
       this.smoothedAudioLevel = 0;
-      this.speakingStateCallback?.(false);
+      this.speakingStateCallback?.(false, this.speakingMetadata);
     });
 
     // Connect to room
@@ -147,15 +158,40 @@ export class LiveKitVoiceManager implements VoiceManager {
     this.room.on(RoomEvent.ParticipantAttributesChanged,
       (changedAttributes: Record<string, string>, participant: any) => {
         if (participant === this.room?.localParticipant) return;
-        const state = changedAttributes['estuary.state'];
-        if (state === 'speaking') {
+        const participantAttributes = participant?.attributes ?? {};
+        const metadata = readLiveKitPlaybackMetadata(
+          changedAttributes,
+          participantAttributes,
+        );
+        const messageChanged = Object.prototype.hasOwnProperty.call(
+          changedAttributes,
+          'estuary.message_id',
+        );
+        if (
+          messageChanged
+          && metadata.messageId !== this.speakingMetadata.messageId
+        ) {
+          // Do not leak the previous utterance's TTS mark into a new message
+          // if an older gateway omitted the optional timestamp attribute.
+          this.speakingMetadata = metadata;
+        } else {
+          this.speakingMetadata = { ...this.speakingMetadata, ...metadata };
+        }
+        const state =
+          changedAttributes['estuary.state']
+          ?? participantAttributes['estuary.state'];
+        const stateChanged = Object.prototype.hasOwnProperty.call(
+          changedAttributes,
+          'estuary.state',
+        );
+        if (state === 'speaking' && (stateChanged || messageChanged)) {
           this._isBotSpeaking = true;
-          this.speakingStateCallback?.(true);
+          this.speakingStateCallback?.(true, this.speakingMetadata);
           this.startAudioLevelPolling();
-        } else if (state === 'idle') {
+        } else if (state === 'idle' && stateChanged) {
           this._isBotSpeaking = false;
           this.stopAudioLevelPolling();
-          this.speakingStateCallback?.(false);
+          this.speakingStateCallback?.(false, this.speakingMetadata);
           this.audioLevelCallback?.(0);
         }
       }
@@ -212,7 +248,7 @@ export class LiveKitVoiceManager implements VoiceManager {
     this.smoothedAudioLevel = 0;
 
     // Fire final "stopped" if bot was considered speaking
-    this.speakingStateCallback?.(false);
+    this.speakingStateCallback?.(false, this.speakingMetadata);
 
     if (this.room) {
       // Stop local tracks
@@ -251,6 +287,7 @@ export class LiveKitVoiceManager implements VoiceManager {
     this.stopAudioLevelPolling();
     this.botParticipant = null;
     this.smoothedAudioLevel = 0;
+    this.speakingMetadata = { transport: 'livekit' };
 
     if (this.room) {
       this.room.disconnect();
@@ -338,4 +375,25 @@ export class LiveKitVoiceManager implements VoiceManager {
       this.socketManager.emitEvent('livekit_token');
     });
   }
+}
+
+/** Parse the correlation fields carried on the bot participant. Exported for
+ * a pure unit test; application code receives this through EstuaryClient's
+ * audioPlaybackStarted event. */
+export function readLiveKitPlaybackMetadata(
+  changedAttributes: Record<string, string>,
+  participantAttributes: Record<string, string> = {},
+): AudioPlaybackMetadata {
+  const read = (key: string): string | undefined =>
+    changedAttributes[key] ?? participantAttributes[key];
+  const messageId = read('estuary.message_id');
+  const rawEpoch = read('estuary.tts_first_pcm_epoch_ms');
+  const parsedEpoch = rawEpoch === undefined ? Number.NaN : Number(rawEpoch);
+  return {
+    transport: 'livekit',
+    ...(messageId ? { messageId } : {}),
+    ...(Number.isFinite(parsedEpoch) && parsedEpoch > 0
+      ? { ttsFirstPcmEpochMs: parsedEpoch }
+      : {}),
+  };
 }

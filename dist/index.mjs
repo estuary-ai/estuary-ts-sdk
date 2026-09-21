@@ -40,7 +40,7 @@ var init_errors = __esm({
   }
 });
 
-// ../node_modules/.pnpm/livekit-client@2.17.1_@types+dom-mediacapture-record@1.0.22/node_modules/livekit-client/dist/livekit-client.esm.mjs
+// ../estuary-frontend/node_modules/.pnpm/livekit-client@2.17.1_@types+dom-mediacapture-record@1.0.22/node_modules/livekit-client/dist/livekit-client.esm.mjs
 var livekit_client_esm_exports = {};
 __export(livekit_client_esm_exports, {
   AudioPresets: () => AudioPresets,
@@ -7920,7 +7920,7 @@ function coerceToDataView(input) {
 }
 var e, h, o, _, FLOAT32_MAX, FLOAT32_MIN, UINT32_MAX, INT32_MAX, INT32_MIN, enumTypeSymbol, Message, TWO_PWR_32_DBL, decimalFrom1e7WithLeadingZeros, protoInt64, ScalarType, LongType, WireType, BinaryWriter, BinaryReader, encTable, decTable, protoBase64, jsonReadDefaults, jsonWriteDefaults, tokenNull, tokenIgnoredUnknownEnum, unknownFieldsSymbol, readDefaults, writeDefaults, InternalFieldList, fieldJsonName, reservedObjectProperties, reservedMessageProperties, fallback, safeMessageProperty, safeObjectProperty, InternalOneofInfo, proto3, Timestamp, MetricsBatch, TimeSeriesMetric, MetricSample, EventMetric, AudioCodec, VideoCodec, ImageCodec, BackupCodecPolicy$1, TrackType, TrackSource, VideoQuality$1, ConnectionQuality$1, ClientConfigSetting, DisconnectReason, ReconnectReason, SubscriptionError, AudioTrackFeature, Room$1, Codec, ParticipantPermission, ParticipantInfo, ParticipantInfo_State, ParticipantInfo_Kind, ParticipantInfo_KindDetail, Encryption_Type, SimulcastCodecInfo, TrackInfo, DataTrackInfo, DataTrackSubscriptionOptions, VideoLayer, VideoLayer_Mode, DataPacket, DataPacket_Kind, EncryptedPacket, EncryptedPacketPayload, ActiveSpeakerUpdate, SpeakerInfo, UserPacket, SipDTMF, Transcription, TranscriptionSegment, ChatMessage, RpcRequest, RpcAck, RpcResponse, RpcError$1, ParticipantTracks, ServerInfo, ServerInfo_Edition, ClientInfo, ClientInfo_SDK, ClientConfiguration, VideoConfiguration, DisabledCodecs, TimedVersion, DataStream_OperationType, DataStream_TextHeader, DataStream_ByteHeader, DataStream_Header, DataStream_Chunk, DataStream_Trailer, FilterParams, WebhookConfig, SubscribedAudioCodec, RoomAgentDispatch, SignalTarget, StreamState, CandidateProtocol, SignalRequest, SignalResponse, SimulcastCodec, AddTrackRequest, PublishDataTrackRequest, PublishDataTrackResponse, UnpublishDataTrackRequest, UnpublishDataTrackResponse, DataTrackSubscriberHandles, DataTrackSubscriberHandles_PublishedDataTrack, TrickleRequest, MuteTrackRequest, JoinResponse, ReconnectResponse, TrackPublishedResponse, TrackUnpublishedResponse, SessionDescription, ParticipantUpdate, UpdateSubscription, UpdateDataSubscription, UpdateDataSubscription_Update, UpdateTrackSettings, UpdateLocalAudioTrack, UpdateLocalVideoTrack, LeaveRequest, LeaveRequest_Action, UpdateVideoLayers, UpdateParticipantMetadata, ICEServer, SpeakersChanged, RoomUpdate, ConnectionQualityInfo, ConnectionQualityUpdate, StreamStateInfo, StreamStateUpdate, SubscribedQuality, SubscribedCodec, SubscribedQualityUpdate, SubscribedAudioCodecUpdate, TrackPermission, SubscriptionPermission, SubscriptionPermissionUpdate, RoomMovedResponse, SyncState, DataChannelReceiveState, DataChannelInfo, SimulateScenario, Ping, Pong, RegionSettings, RegionInfo, SubscriptionResponse, RequestResponse, RequestResponse_Reason, TrackSubscribed, ConnectionSettings, JoinRequest, WrappedJoinRequest, WrappedJoinRequest_Compression, MediaSectionsRequirement, EncodedFileType, SegmentedFileProtocol, SegmentedFileSuffix, ImageFileSuffix, StreamProtocol, AudioMixing, EncodingOptionsPreset, RoomCompositeEgressRequest, EncodedFileOutput, SegmentedFileOutput, ImageOutput, S3Upload, GCPUpload, AzureBlobUpload, AliOSSUpload, ProxyConfig, StreamOutput, EncodingOptions, AutoParticipantEgress, AutoTrackEgress, RoomEgress, RoomConfiguration, TokenSourceRequest, TokenSourceResponse, loglevel$1, loglevel, hasRequiredLoglevel, loglevelExports, LogLevel, LoggerNames, livekitLogger, livekitLoggers, workerLogger, maxRetryDelay, DEFAULT_RETRY_DELAYS_IN_MS, DefaultReconnectPolicy, events, hasRequiredEvents, eventsExports, logDisabled_, deprecationWarnings_, logging, chromeShim, firefoxShim, safariShim, sdp$1, hasRequiredSdp, sdpExports, SDPUtils, sdp, commonShim, _a, _b, TypedPromise, commonVersionIdentifier, browserDetails, browsersList, version$1, version, protocolVersion, LivekitError, LivekitReasonedError, SimulatedError, ConnectionErrorReason, ConnectionError, DeviceUnsupportedError, TrackInvalidError, UnsupportedServer, UnexpectedConnectionState, NegotiationError, PublishDataError, PublishTrackError, SignalRequestError, DataStreamErrorReason, DataStreamError, SignalReconnectError, MediaDeviceFailure, CriticalTimers, RoomEvent, ParticipantEvent, EngineEvent, TrackEvent, VideoPreset, audioCodecs, backupVideoCodecs, videoCodecs, isBackupCodec, BackupCodecPolicy, AudioPresets, VideoPresets, VideoPresets43, ScreenSharePresets, BACKGROUND_REACTION_DELAY, recycledElements, VideoQuality, Track, separator, ddExtensionURI, resizeObserver, getResizeObserver, intersectionObserver, getIntersectionObserver, emptyVideoStreamTrack, emptyAudioStreamTrack, Future, ENCRYPTION_ALGORITHM, DECRYPTION_FAILURE_TOLERANCE, E2EE_FLAG, SALT, KEY_PROVIDER_DEFAULTS, KeyProviderEvent, KeyHandlerEvent, EncryptionEvent, CryptorEvent, kZerosInStartSequence, kEmulationByte, BaseKeyProvider, ExternalE2EEKeyProvider, CryptorErrorReason, CryptorError, E2EEManager, CONNECTION_BACKOFF_MIN_MS, CONNECTION_BACKOFF_MAX_MS, BackOffStrategy, defaultId, DeviceManager, QueueTaskStatus, AsyncQueue, WebSocketStream, passThroughQueueSignals, SignalConnectionState, MAX_WS_CLOSE_TIME, SignalClient, DataPacketBuffer, TTLMap, lib, parser, grammar, hasRequiredGrammar, hasRequiredParser, writer, hasRequiredWriter, hasRequiredLib, libExports, startBitrateForSVC, debounceInterval, PCEvents, PCTransport, defaultVideoCodec, publishDefaults, audioDefaults, videoDefaults, roomOptionDefaults, roomConnectOptionDefaults, PCTransportState, PCTransportManager, DEFAULT_MAX_AGE_MS, STOP_REFETCH_DELAY_MS, RegionUrlProvider, RpcError, MAX_PAYLOAD_BYTES, monitorFrequency, isMediaRecorderAvailable, FallbackRecorder, RecorderBase, LocalTrackRecorder, DEFAULT_DIMENSIONS_TIMEOUT, PRE_CONNECT_BUFFER_TIMEOUT, LocalTrack, LocalAudioTrack, presets169, presets43, presetsScreenShare, defaultSimulcastPresets169, defaultSimulcastPresets43, computeDefaultScreenShareSimulcastPresets, videoRids, ScalabilityMode, refreshSubscribedCodecAfterNewCodec, LocalVideoTrack, lossyDataChannel, reliableDataChannel, minReconnectWait, leaveReconnect, reliabeReceiveStateTTL, lossyDataChannelBufferThresholdMin, lossyDataChannelBufferThresholdMax, PCState, RTCEngine, BaseStreamReader, ByteStreamReader, TextStreamReader, IncomingDataStreamManager, BaseStreamWriter, TextStreamWriter, ByteStreamWriter, STREAM_CHUNK_SIZE, OutgoingDataStreamManager, RemoteTrack, RemoteAudioTrack, REACTION_DELAY, RemoteVideoTrack, HTMLElementInfo, TrackPublication, LocalTrackPublication, ConnectionQuality, Participant, LocalParticipant, RemoteTrackPublication, RemoteParticipant, ConnectionState2, CONNECTION_RECONCILE_FREQUENCY_MS, Room, Convert, attributeTypings, CheckStatus, Checker, CloudRegionCheck, TEST_DURATION, ConnectionProtocolCheck, PublishAudioCheck, PublishVideoCheck, ReconnectCheck, TURNCheck, WebRTCCheck, WebSocketCheck, ConnectionCheck, TokenSourceFixed, TokenSourceConfigurable, decoder, JOSEError, JWTClaimValidationFailed, JWTExpired, JOSEAlgNotAllowed, JOSENotSupported, JWEDecryptionFailed, JWEInvalid, JWSInvalid, JWTInvalid, JWKInvalid, JWKSInvalid, JWKSNoMatchingKey, JWKSMultipleMatchingKeys, JWKSTimeout, JWSSignatureVerificationFailed, isObjectLike, ONE_SECOND_IN_MILLISECONDS, ONE_MINUTE_IN_MILLISECONDS, TokenSourceCached, TokenSourceLiteral, TokenSourceCustom, TokenSourceEndpoint, TokenSourceSandboxTokenServer, TokenSource, knownDeviceLabels, knownDeviceLabelSections, U16_MAX_SIZE, WrapAroundUnsignedInt, DataTrackTimestamp, DataTrackHandleErrorReason, DataTrackHandleError, DataTrackHandle, U8_LENGTH_BYTES, U16_LENGTH_BYTES, U32_LENGTH_BYTES, U64_LENGTH_BYTES, SUPPORTED_VERSION, BASE_HEADER_LEN, VERSION_SHIFT, VERSION_MASK, FRAME_MARKER_SHIFT, FRAME_MARKER_MASK, FRAME_MARKER_START, FRAME_MARKER_FINAL, FRAME_MARKER_INTER, FRAME_MARKER_SINGLE, EXT_WORDS_INDICATOR_SIZE, EXT_FLAG_SHIFT, EXT_FLAG_MASK, EXT_TAG_PADDING, DataTrackDeserializeErrorReason, DataTrackDeserializeError, DataTrackSerializeErrorReason, DataTrackSerializeError, Serializable, DataTrackExtensionTag, DataTrackExtension, DataTrackUserTimestampExtension, DataTrackE2eeExtension, DataTrackExtensions, DataTrackPacketHeader, FrameMarker, DataTrackPacket;
 var init_livekit_client_esm = __esm({
-  "../node_modules/.pnpm/livekit-client@2.17.1_@types+dom-mediacapture-record@1.0.22/node_modules/livekit-client/dist/livekit-client.esm.mjs"() {
+  "../estuary-frontend/node_modules/.pnpm/livekit-client@2.17.1_@types+dom-mediacapture-record@1.0.22/node_modules/livekit-client/dist/livekit-client.esm.mjs"() {
     e = Object.defineProperty;
     h = (i, s, t) => s in i ? e(i, s, {
       enumerable: true,
@@ -26947,8 +26947,20 @@ var init_websocket_voice = __esm({
 // src/voice/livekit-voice.ts
 var livekit_voice_exports = {};
 __export(livekit_voice_exports, {
-  LiveKitVoiceManager: () => LiveKitVoiceManager
+  LiveKitVoiceManager: () => LiveKitVoiceManager,
+  readLiveKitPlaybackMetadata: () => readLiveKitPlaybackMetadata
 });
+function readLiveKitPlaybackMetadata(changedAttributes, participantAttributes = {}) {
+  const read = (key) => changedAttributes[key] ?? participantAttributes[key];
+  const messageId = read("estuary.message_id");
+  const rawEpoch = read("estuary.tts_first_pcm_epoch_ms");
+  const parsedEpoch = rawEpoch === void 0 ? Number.NaN : Number(rawEpoch);
+  return {
+    transport: "livekit",
+    ...messageId ? { messageId } : {},
+    ...Number.isFinite(parsedEpoch) && parsedEpoch > 0 ? { ttsFirstPcmEpochMs: parsedEpoch } : {}
+  };
+}
 var LiveKitVoiceManager;
 var init_livekit_voice = __esm({
   "src/voice/livekit-voice.ts"() {
@@ -26968,6 +26980,7 @@ var init_livekit_voice = __esm({
       smoothedAudioLevel = 0;
       audioLevelPollTimer = null;
       _isBotSpeaking = false;
+      speakingMetadata = { transport: "livekit" };
       constructor(socketManager, logger) {
         this.socketManager = socketManager;
         this.logger = logger;
@@ -27044,7 +27057,7 @@ var init_livekit_voice = __esm({
           this.stopAudioLevelPolling();
           this.botParticipant = null;
           this.smoothedAudioLevel = 0;
-          this.speakingStateCallback?.(false);
+          this.speakingStateCallback?.(false, this.speakingMetadata);
         });
         try {
           await this.room.connect(tokenData.url, tokenData.token);
@@ -27062,15 +27075,33 @@ var init_livekit_voice = __esm({
           RoomEvent2.ParticipantAttributesChanged,
           (changedAttributes, participant) => {
             if (participant === this.room?.localParticipant) return;
-            const state = changedAttributes["estuary.state"];
-            if (state === "speaking") {
+            const participantAttributes = participant?.attributes ?? {};
+            const metadata = readLiveKitPlaybackMetadata(
+              changedAttributes,
+              participantAttributes
+            );
+            const messageChanged = Object.prototype.hasOwnProperty.call(
+              changedAttributes,
+              "estuary.message_id"
+            );
+            if (messageChanged && metadata.messageId !== this.speakingMetadata.messageId) {
+              this.speakingMetadata = metadata;
+            } else {
+              this.speakingMetadata = { ...this.speakingMetadata, ...metadata };
+            }
+            const state = changedAttributes["estuary.state"] ?? participantAttributes["estuary.state"];
+            const stateChanged = Object.prototype.hasOwnProperty.call(
+              changedAttributes,
+              "estuary.state"
+            );
+            if (state === "speaking" && (stateChanged || messageChanged)) {
               this._isBotSpeaking = true;
-              this.speakingStateCallback?.(true);
+              this.speakingStateCallback?.(true, this.speakingMetadata);
               this.startAudioLevelPolling();
-            } else if (state === "idle") {
+            } else if (state === "idle" && stateChanged) {
               this._isBotSpeaking = false;
               this.stopAudioLevelPolling();
-              this.speakingStateCallback?.(false);
+              this.speakingStateCallback?.(false, this.speakingMetadata);
               this.audioLevelCallback?.(0);
             }
           }
@@ -27114,7 +27145,7 @@ var init_livekit_voice = __esm({
         this.stopAudioLevelPolling();
         this.botParticipant = null;
         this.smoothedAudioLevel = 0;
-        this.speakingStateCallback?.(false);
+        this.speakingStateCallback?.(false, this.speakingMetadata);
         if (this.room) {
           for (const [, publication] of this.room.localParticipant.trackPublications) {
             if (publication.track) {
@@ -27147,6 +27178,7 @@ var init_livekit_voice = __esm({
         this.stopAudioLevelPolling();
         this.botParticipant = null;
         this.smoothedAudioLevel = 0;
+        this.speakingMetadata = { transport: "livekit" };
         if (this.room) {
           this.room.disconnect();
           this.room = null;
@@ -27211,7 +27243,7 @@ var init_livekit_voice = __esm({
   }
 });
 
-// ../node_modules/.pnpm/engine.io-parser@5.2.3/node_modules/engine.io-parser/build/esm/commons.js
+// ../estuary-frontend/node_modules/.pnpm/engine.io-parser@5.2.3/node_modules/engine.io-parser/build/esm/commons.js
 var PACKET_TYPES = /* @__PURE__ */ Object.create(null);
 PACKET_TYPES["open"] = "0";
 PACKET_TYPES["close"] = "1";
@@ -27226,7 +27258,7 @@ Object.keys(PACKET_TYPES).forEach((key) => {
 });
 var ERROR_PACKET = { type: "error", data: "parser error" };
 
-// ../node_modules/.pnpm/engine.io-parser@5.2.3/node_modules/engine.io-parser/build/esm/encodePacket.browser.js
+// ../estuary-frontend/node_modules/.pnpm/engine.io-parser@5.2.3/node_modules/engine.io-parser/build/esm/encodePacket.browser.js
 var withNativeBlob = typeof Blob === "function" || typeof Blob !== "undefined" && Object.prototype.toString.call(Blob) === "[object BlobConstructor]";
 var withNativeArrayBuffer = typeof ArrayBuffer === "function";
 var isView = (obj) => {
@@ -27280,7 +27312,7 @@ function encodePacketToBinary(packet, callback) {
   });
 }
 
-// ../node_modules/.pnpm/engine.io-parser@5.2.3/node_modules/engine.io-parser/build/esm/contrib/base64-arraybuffer.js
+// ../estuary-frontend/node_modules/.pnpm/engine.io-parser@5.2.3/node_modules/engine.io-parser/build/esm/contrib/base64-arraybuffer.js
 var chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 var lookup = typeof Uint8Array === "undefined" ? [] : new Uint8Array(256);
 for (let i = 0; i < chars.length; i++) {
@@ -27307,7 +27339,7 @@ var decode = (base64) => {
   return arraybuffer;
 };
 
-// ../node_modules/.pnpm/engine.io-parser@5.2.3/node_modules/engine.io-parser/build/esm/decodePacket.browser.js
+// ../estuary-frontend/node_modules/.pnpm/engine.io-parser@5.2.3/node_modules/engine.io-parser/build/esm/decodePacket.browser.js
 var withNativeArrayBuffer2 = typeof ArrayBuffer === "function";
 var decodePacket = (encodedPacket, binaryType) => {
   if (typeof encodedPacket !== "string") {
@@ -27360,7 +27392,7 @@ var mapBinary = (data, binaryType) => {
   }
 };
 
-// ../node_modules/.pnpm/engine.io-parser@5.2.3/node_modules/engine.io-parser/build/esm/index.js
+// ../estuary-frontend/node_modules/.pnpm/engine.io-parser@5.2.3/node_modules/engine.io-parser/build/esm/index.js
 var SEPARATOR = String.fromCharCode(30);
 var encodePayload = (packets, callback) => {
   const length = packets.length;
@@ -27502,7 +27534,7 @@ function createPacketDecoderStream(maxPayload, binaryType) {
 }
 var protocol = 4;
 
-// ../node_modules/.pnpm/@socket.io+component-emitter@3.1.2/node_modules/@socket.io/component-emitter/lib/esm/index.js
+// ../estuary-frontend/node_modules/.pnpm/@socket.io+component-emitter@3.1.2/node_modules/@socket.io/component-emitter/lib/esm/index.js
 function Emitter(obj) {
   if (obj) return mixin(obj);
 }
@@ -27574,7 +27606,7 @@ Emitter.prototype.hasListeners = function(event) {
   return !!this.listeners(event).length;
 };
 
-// ../node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm/globals.js
+// ../estuary-frontend/node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm/globals.js
 var nextTick = (() => {
   const isPromiseAvailable = typeof Promise === "function" && typeof Promise.resolve === "function";
   if (isPromiseAvailable) {
@@ -27596,7 +27628,7 @@ var defaultBinaryType = "arraybuffer";
 function createCookieJar() {
 }
 
-// ../node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm/util.js
+// ../estuary-frontend/node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm/util.js
 function pick(obj, ...attr) {
   return attr.reduce((acc, k) => {
     if (obj.hasOwnProperty(k)) {
@@ -27644,7 +27676,7 @@ function randomString() {
   return Date.now().toString(36).substring(3) + Math.random().toString(36).substring(2, 5);
 }
 
-// ../node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm/contrib/parseqs.js
+// ../estuary-frontend/node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm/contrib/parseqs.js
 function encode(obj) {
   let str = "";
   for (let i in obj) {
@@ -27666,7 +27698,7 @@ function decode2(qs) {
   return qry;
 }
 
-// ../node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm/transport.js
+// ../estuary-frontend/node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm/transport.js
 var TransportError = class extends Error {
   constructor(reason, description, context) {
     super(reason);
@@ -27796,7 +27828,7 @@ var Transport = class extends Emitter {
   }
 };
 
-// ../node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm/transports/polling.js
+// ../estuary-frontend/node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm/transports/polling.js
 var Polling = class extends Transport {
   constructor() {
     super(...arguments);
@@ -27927,7 +27959,7 @@ var Polling = class extends Transport {
   }
 };
 
-// ../node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm/contrib/has-cors.js
+// ../estuary-frontend/node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm/contrib/has-cors.js
 var value = false;
 try {
   value = typeof XMLHttpRequest !== "undefined" && "withCredentials" in new XMLHttpRequest();
@@ -27935,7 +27967,7 @@ try {
 }
 var hasCORS = value;
 
-// ../node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm/transports/polling-xhr.js
+// ../estuary-frontend/node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm/transports/polling-xhr.js
 function empty() {
 }
 var BaseXHR = class extends Polling {
@@ -28176,7 +28208,7 @@ function newRequest(opts) {
   }
 }
 
-// ../node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm/transports/websocket.js
+// ../estuary-frontend/node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm/transports/websocket.js
 var isReactNative = typeof navigator !== "undefined" && typeof navigator.product === "string" && navigator.product.toLowerCase() === "reactnative";
 var BaseWS = class extends Transport {
   get name() {
@@ -28270,7 +28302,7 @@ var WS = class extends BaseWS {
   }
 };
 
-// ../node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm/transports/webtransport.js
+// ../estuary-frontend/node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm/transports/webtransport.js
 var WT = class extends Transport {
   get name() {
     return "webtransport";
@@ -28333,14 +28365,14 @@ var WT = class extends Transport {
   }
 };
 
-// ../node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm/transports/index.js
+// ../estuary-frontend/node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm/transports/index.js
 var transports = {
   websocket: WS,
   webtransport: WT,
   polling: XHR
 };
 
-// ../node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm/contrib/parseuri.js
+// ../estuary-frontend/node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm/contrib/parseuri.js
 var re = /^(?:(?![^:@\/?#]+:[^:@\/]*@)(http|https|ws|wss):\/\/)?((?:(([^:@\/?#]*)(?::([^:@\/?#]*))?)?@)?((?:[a-f0-9]{0,4}:){2,7}[a-f0-9]{0,4}|[^:\/?#]*)(?::(\d*))?)(((\/(?:[^?#](?![^?#\/]*\.[^?#\/.]+(?:[?#]|$)))*\/?)?([^?#\/]*))(?:\?([^#]*))?(?:#(.*))?)/;
 var parts = [
   "source",
@@ -28400,7 +28432,7 @@ function queryKey(uri, query) {
   return data;
 }
 
-// ../node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm/socket.js
+// ../estuary-frontend/node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm/socket.js
 var withEventListeners = typeof addEventListener === "function" && typeof removeEventListener === "function";
 var OFFLINE_EVENT_LISTENERS = [];
 if (withEventListeners) {
@@ -28966,7 +28998,7 @@ var Socket = class extends SocketWithUpgrade {
   }
 };
 
-// ../node_modules/.pnpm/socket.io-client@4.8.3/node_modules/socket.io-client/build/esm/url.js
+// ../estuary-frontend/node_modules/.pnpm/socket.io-client@4.8.3/node_modules/socket.io-client/build/esm/url.js
 function url(uri, path = "", loc) {
   let obj = uri;
   loc = loc || typeof location !== "undefined" && location;
@@ -29004,7 +29036,7 @@ function url(uri, path = "", loc) {
   return obj;
 }
 
-// ../node_modules/.pnpm/socket.io-parser@4.2.5/node_modules/socket.io-parser/build/esm/index.js
+// ../estuary-frontend/node_modules/.pnpm/socket.io-parser@4.2.5/node_modules/socket.io-parser/build/esm/index.js
 var esm_exports = {};
 __export(esm_exports, {
   Decoder: () => Decoder,
@@ -29014,7 +29046,7 @@ __export(esm_exports, {
   protocol: () => protocol3
 });
 
-// ../node_modules/.pnpm/socket.io-parser@4.2.5/node_modules/socket.io-parser/build/esm/is-binary.js
+// ../estuary-frontend/node_modules/.pnpm/socket.io-parser@4.2.5/node_modules/socket.io-parser/build/esm/is-binary.js
 var withNativeArrayBuffer3 = typeof ArrayBuffer === "function";
 var isView2 = (obj) => {
   return typeof ArrayBuffer.isView === "function" ? ArrayBuffer.isView(obj) : obj.buffer instanceof ArrayBuffer;
@@ -29051,7 +29083,7 @@ function hasBinary(obj, toJSON) {
   return false;
 }
 
-// ../node_modules/.pnpm/socket.io-parser@4.2.5/node_modules/socket.io-parser/build/esm/binary.js
+// ../estuary-frontend/node_modules/.pnpm/socket.io-parser@4.2.5/node_modules/socket.io-parser/build/esm/binary.js
 function deconstructPacket(packet) {
   const buffers = [];
   const packetData = packet.data;
@@ -29113,7 +29145,7 @@ function _reconstructPacket(data, buffers) {
   return data;
 }
 
-// ../node_modules/.pnpm/socket.io-parser@4.2.5/node_modules/socket.io-parser/build/esm/index.js
+// ../estuary-frontend/node_modules/.pnpm/socket.io-parser@4.2.5/node_modules/socket.io-parser/build/esm/index.js
 var RESERVED_EVENTS = [
   "connect",
   // used on the client side
@@ -29402,7 +29434,7 @@ function isPacketValid(packet) {
   return isNamespaceValid(packet.nsp) && isAckIdValid(packet.id) && isDataValid(packet.type, packet.data);
 }
 
-// ../node_modules/.pnpm/socket.io-client@4.8.3/node_modules/socket.io-client/build/esm/on.js
+// ../estuary-frontend/node_modules/.pnpm/socket.io-client@4.8.3/node_modules/socket.io-client/build/esm/on.js
 function on(obj, ev, fn) {
   obj.on(ev, fn);
   return function subDestroy() {
@@ -29410,7 +29442,7 @@ function on(obj, ev, fn) {
   };
 }
 
-// ../node_modules/.pnpm/socket.io-client@4.8.3/node_modules/socket.io-client/build/esm/socket.js
+// ../estuary-frontend/node_modules/.pnpm/socket.io-client@4.8.3/node_modules/socket.io-client/build/esm/socket.js
 var RESERVED_EVENTS2 = Object.freeze({
   connect: 1,
   connect_error: 1,
@@ -30181,7 +30213,7 @@ var Socket2 = class extends Emitter {
   }
 };
 
-// ../node_modules/.pnpm/socket.io-client@4.8.3/node_modules/socket.io-client/build/esm/contrib/backo2.js
+// ../estuary-frontend/node_modules/.pnpm/socket.io-client@4.8.3/node_modules/socket.io-client/build/esm/contrib/backo2.js
 function Backoff(opts) {
   opts = opts || {};
   this.ms = opts.min || 100;
@@ -30212,7 +30244,7 @@ Backoff.prototype.setJitter = function(jitter) {
   this.jitter = jitter;
 };
 
-// ../node_modules/.pnpm/socket.io-client@4.8.3/node_modules/socket.io-client/build/esm/manager.js
+// ../estuary-frontend/node_modules/.pnpm/socket.io-client@4.8.3/node_modules/socket.io-client/build/esm/manager.js
 var Manager = class extends Emitter {
   constructor(uri, opts) {
     var _a2;
@@ -30562,7 +30594,7 @@ var Manager = class extends Emitter {
   }
 };
 
-// ../node_modules/.pnpm/socket.io-client@4.8.3/node_modules/socket.io-client/build/esm/index.js
+// ../estuary-frontend/node_modules/.pnpm/socket.io-client@4.8.3/node_modules/socket.io-client/build/esm/index.js
 var cache = {};
 function lookup2(uri, opts) {
   if (typeof uri === "object") {
@@ -31767,6 +31799,7 @@ var EstuaryClient = class extends TypedEventEmitter {
   _hasAutoInterrupted = false;
   _autoInterruptGraceTimer = null;
   _isLiveKitSpeaking = false;
+  _liveKitPlaybackMessageId = null;
   _activeScript = null;
   constructor(config) {
     super();
@@ -32011,18 +32044,24 @@ var EstuaryClient = class extends TypedEventEmitter {
       });
     }
     await this.voiceManager.start();
-    this.voiceManager.setSpeakingStateCallback?.((speaking) => {
-      this._isLiveKitSpeaking = speaking;
+    this.voiceManager.setSpeakingStateCallback?.((speaking, metadata) => {
+      const messageId = metadata?.messageId ?? this._liveKitPlaybackMessageId ?? "livekit-audio";
       if (speaking) {
+        const isNewPlayback = !this._isLiveKitSpeaking || messageId !== this._liveKitPlaybackMessageId;
+        this._isLiveKitSpeaking = true;
+        this._liveKitPlaybackMessageId = messageId;
+        if (!isNewPlayback) return;
         this.startPlaybackGrace();
-        this.emit("audioPlaybackStarted", "livekit-audio");
+        this.emit("audioPlaybackStarted", messageId, metadata);
         if (this.config.suppressMicDuringPlayback) {
           this.voiceManager?.setSuppressed?.(true);
         }
       } else {
-        this.emit("audioPlaybackComplete", "livekit-audio");
+        this._isLiveKitSpeaking = false;
+        this._liveKitPlaybackMessageId = null;
+        this.emit("audioPlaybackComplete", messageId);
         this.emit("botAudioLevel", 0);
-        this.notifyAudioPlaybackComplete("livekit-audio");
+        this.notifyAudioPlaybackComplete(messageId);
         if (this.config.suppressMicDuringPlayback) {
           this.voiceManager?.setSuppressed?.(false);
         }

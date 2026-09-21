@@ -16,6 +16,7 @@ import {
   ShareOpenResponse,
   BotResponse,
   BotVoice,
+  AudioPlaybackMetadata,
   SttResponse,
   VoiceManager,
   ScriptLine,
@@ -47,6 +48,7 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
   private _hasAutoInterrupted = false;
   private _autoInterruptGraceTimer: ReturnType<typeof setTimeout> | null = null;
   private _isLiveKitSpeaking = false;
+  private _liveKitPlaybackMessageId: string | null = null;
   private _activeScript: ScriptPlayer | null = null;
   // Warn once per client about bot audio that arrived over a transport we
   // cannot play, rather than once per chunk.
@@ -354,18 +356,29 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
     await this.voiceManager.start();
 
     // Wire LiveKit speaking state (participant attributes) to events
-    this.voiceManager.setSpeakingStateCallback?.((speaking: boolean) => {
-      this._isLiveKitSpeaking = speaking;
+    this.voiceManager.setSpeakingStateCallback?.((
+      speaking: boolean,
+      metadata?: AudioPlaybackMetadata,
+    ) => {
+      const messageId =
+        metadata?.messageId ?? this._liveKitPlaybackMessageId ?? 'livekit-audio';
       if (speaking) {
+        const isNewPlayback =
+          !this._isLiveKitSpeaking || messageId !== this._liveKitPlaybackMessageId;
+        this._isLiveKitSpeaking = true;
+        this._liveKitPlaybackMessageId = messageId;
+        if (!isNewPlayback) return;
         this.startPlaybackGrace();
-        this.emit('audioPlaybackStarted', 'livekit-audio');
+        this.emit('audioPlaybackStarted', messageId, metadata);
         if (this.config.suppressMicDuringPlayback) {
           this.voiceManager?.setSuppressed?.(true);
         }
       } else {
-        this.emit('audioPlaybackComplete', 'livekit-audio');
+        this._isLiveKitSpeaking = false;
+        this._liveKitPlaybackMessageId = null;
+        this.emit('audioPlaybackComplete', messageId);
         this.emit('botAudioLevel', 0);
-        this.notifyAudioPlaybackComplete('livekit-audio');
+        this.notifyAudioPlaybackComplete(messageId);
         if (this.config.suppressMicDuringPlayback) {
           this.voiceManager?.setSuppressed?.(false);
         }

@@ -85,6 +85,15 @@ interface BotVoice {
     isFinal?: boolean;
     isLivekit?: boolean;
 }
+/** Correlation metadata attached to audio playback lifecycle events.
+ * Diagnostic only: consumers must not use these marks to schedule playback. */
+interface AudioPlaybackMetadata {
+    transport: 'websocket' | 'livekit';
+    /** Real worker/gateway utterance id when the transport can provide it. */
+    messageId?: string;
+    /** Worker wall-clock mark for the first published TTS PCM chunk. */
+    ttsFirstPcmEpochMs?: number;
+}
 interface BotAnimation {
     messageId: string;
     sequence: number;
@@ -255,7 +264,7 @@ type EstuaryEventMap = {
     voiceStopped: () => void;
     livekitConnected: (room: string) => void;
     livekitDisconnected: () => void;
-    audioPlaybackStarted: (messageId: string) => void;
+    audioPlaybackStarted: (messageId: string, metadata?: AudioPlaybackMetadata) => void;
     audioPlaybackComplete: (messageId: string) => void;
     /** Bot audio level 0.0–1.0, emitted during playback for both transports. */
     botAudioLevel: (level: number) => void;
@@ -427,6 +436,7 @@ declare class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
     private _hasAutoInterrupted;
     private _autoInterruptGraceTimer;
     private _isLiveKitSpeaking;
+    private _liveKitPlaybackMessageId;
     private _activeScript;
     constructor(config: EstuaryConfig);
     /** Memory API client for querying memories, graphs, and facts */

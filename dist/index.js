@@ -39,9 +39,9 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   mod
 ));
 
-// ../node_modules/.pnpm/xmlhttprequest-ssl@2.1.2/node_modules/xmlhttprequest-ssl/lib/XMLHttpRequest.js
+// ../estuary-frontend/node_modules/.pnpm/xmlhttprequest-ssl@2.1.2/node_modules/xmlhttprequest-ssl/lib/XMLHttpRequest.js
 var require_XMLHttpRequest = __commonJS({
-  "../node_modules/.pnpm/xmlhttprequest-ssl@2.1.2/node_modules/xmlhttprequest-ssl/lib/XMLHttpRequest.js"(exports$1, module) {
+  "../estuary-frontend/node_modules/.pnpm/xmlhttprequest-ssl@2.1.2/node_modules/xmlhttprequest-ssl/lib/XMLHttpRequest.js"(exports, module) {
     var fs = __require("fs");
     var Url = __require("url");
     var spawn = __require("child_process").spawn;
@@ -440,9 +440,9 @@ var require_XMLHttpRequest = __commonJS({
   }
 });
 
-// ../node_modules/.pnpm/ms@2.1.3/node_modules/ms/index.js
+// ../estuary-frontend/node_modules/.pnpm/ms@2.1.3/node_modules/ms/index.js
 var require_ms = __commonJS({
-  "../node_modules/.pnpm/ms@2.1.3/node_modules/ms/index.js"(exports$1, module) {
+  "../estuary-frontend/node_modules/.pnpm/ms@2.1.3/node_modules/ms/index.js"(exports, module) {
     var s = 1e3;
     var m = s * 60;
     var h = m * 60;
@@ -556,9 +556,9 @@ var require_ms = __commonJS({
   }
 });
 
-// ../node_modules/.pnpm/debug@4.4.3/node_modules/debug/src/common.js
+// ../estuary-frontend/node_modules/.pnpm/debug@4.4.3/node_modules/debug/src/common.js
 var require_common = __commonJS({
-  "../node_modules/.pnpm/debug@4.4.3/node_modules/debug/src/common.js"(exports$1, module) {
+  "../estuary-frontend/node_modules/.pnpm/debug@4.4.3/node_modules/debug/src/common.js"(exports, module) {
     function setup(env) {
       createDebug.debug = createDebug;
       createDebug.default = createDebug;
@@ -588,11 +588,11 @@ var require_common = __commonJS({
         let enableOverride = null;
         let namespacesCache;
         let enabledCache;
-        function debug12(...args) {
-          if (!debug12.enabled) {
+        function debug8(...args) {
+          if (!debug8.enabled) {
             return;
           }
-          const self = debug12;
+          const self = debug8;
           const curr = Number(/* @__PURE__ */ new Date());
           const ms = curr - (prevTime || curr);
           self.diff = ms;
@@ -622,12 +622,12 @@ var require_common = __commonJS({
           const logFn = self.log || createDebug.log;
           logFn.apply(self, args);
         }
-        debug12.namespace = namespace;
-        debug12.useColors = createDebug.useColors();
-        debug12.color = createDebug.selectColor(namespace);
-        debug12.extend = extend;
-        debug12.destroy = createDebug.destroy;
-        Object.defineProperty(debug12, "enabled", {
+        debug8.namespace = namespace;
+        debug8.useColors = createDebug.useColors();
+        debug8.color = createDebug.selectColor(namespace);
+        debug8.extend = extend;
+        debug8.destroy = createDebug.destroy;
+        Object.defineProperty(debug8, "enabled", {
           enumerable: true,
           configurable: false,
           get: () => {
@@ -645,9 +645,9 @@ var require_common = __commonJS({
           }
         });
         if (typeof createDebug.init === "function") {
-          createDebug.init(debug12);
+          createDebug.init(debug8);
         }
-        return debug12;
+        return debug8;
       }
       function extend(namespace, delimiter) {
         const newDebug = createDebug(this.namespace + (typeof delimiter === "undefined" ? ":" : delimiter) + namespace);
@@ -733,15 +733,15 @@ var require_common = __commonJS({
   }
 });
 
-// ../node_modules/.pnpm/debug@4.4.3/node_modules/debug/src/browser.js
+// ../estuary-frontend/node_modules/.pnpm/debug@4.4.3/node_modules/debug/src/browser.js
 var require_browser = __commonJS({
-  "../node_modules/.pnpm/debug@4.4.3/node_modules/debug/src/browser.js"(exports$1, module) {
-    exports$1.formatArgs = formatArgs;
-    exports$1.save = save;
-    exports$1.load = load;
-    exports$1.useColors = useColors;
-    exports$1.storage = localstorage();
-    exports$1.destroy = /* @__PURE__ */ (() => {
+  "../estuary-frontend/node_modules/.pnpm/debug@4.4.3/node_modules/debug/src/browser.js"(exports, module) {
+    exports.formatArgs = formatArgs;
+    exports.save = save;
+    exports.load = load;
+    exports.useColors = useColors;
+    exports.storage = localstorage();
+    exports.destroy = /* @__PURE__ */ (() => {
       let warned = false;
       return () => {
         if (!warned) {
@@ -750,7 +750,7 @@ var require_browser = __commonJS({
         }
       };
     })();
-    exports$1.colors = [
+    exports.colors = [
       "#0000CC",
       "#0000FF",
       "#0033CC",
@@ -862,14 +862,14 @@ var require_browser = __commonJS({
       });
       args.splice(lastC, 0, c);
     }
-    exports$1.log = console.debug || console.log || (() => {
+    exports.log = console.debug || console.log || (() => {
     });
     function save(namespaces) {
       try {
         if (namespaces) {
-          exports$1.storage.setItem("debug", namespaces);
+          exports.storage.setItem("debug", namespaces);
         } else {
-          exports$1.storage.removeItem("debug");
+          exports.storage.removeItem("debug");
         }
       } catch (error) {
       }
@@ -877,7 +877,7 @@ var require_browser = __commonJS({
     function load() {
       let r;
       try {
-        r = exports$1.storage.getItem("debug") || exports$1.storage.getItem("DEBUG");
+        r = exports.storage.getItem("debug") || exports.storage.getItem("DEBUG");
       } catch (error) {
       }
       if (!r && typeof process !== "undefined" && "env" in process) {
@@ -891,7 +891,7 @@ var require_browser = __commonJS({
       } catch (error) {
       }
     }
-    module.exports = require_common()(exports$1);
+    module.exports = require_common()(exports);
     var { formatters } = module.exports;
     formatters.j = function(v) {
       try {
@@ -903,9 +903,9 @@ var require_browser = __commonJS({
   }
 });
 
-// ../node_modules/.pnpm/has-flag@4.0.0/node_modules/has-flag/index.js
+// ../estuary-frontend/node_modules/.pnpm/has-flag@4.0.0/node_modules/has-flag/index.js
 var require_has_flag = __commonJS({
-  "../node_modules/.pnpm/has-flag@4.0.0/node_modules/has-flag/index.js"(exports$1, module) {
+  "../estuary-frontend/node_modules/.pnpm/has-flag@4.0.0/node_modules/has-flag/index.js"(exports, module) {
     module.exports = (flag, argv = process.argv) => {
       const prefix = flag.startsWith("-") ? "" : flag.length === 1 ? "-" : "--";
       const position = argv.indexOf(prefix + flag);
@@ -915,9 +915,9 @@ var require_has_flag = __commonJS({
   }
 });
 
-// ../node_modules/.pnpm/supports-color@8.1.1/node_modules/supports-color/index.js
+// ../estuary-frontend/node_modules/.pnpm/supports-color@8.1.1/node_modules/supports-color/index.js
 var require_supports_color = __commonJS({
-  "../node_modules/.pnpm/supports-color@8.1.1/node_modules/supports-color/index.js"(exports$1, module) {
+  "../estuary-frontend/node_modules/.pnpm/supports-color@8.1.1/node_modules/supports-color/index.js"(exports, module) {
     var os = __require("os");
     var tty = __require("tty");
     var hasFlag = require_has_flag();
@@ -1028,27 +1028,27 @@ var require_supports_color = __commonJS({
   }
 });
 
-// ../node_modules/.pnpm/debug@4.4.3/node_modules/debug/src/node.js
+// ../estuary-frontend/node_modules/.pnpm/debug@4.4.3/node_modules/debug/src/node.js
 var require_node = __commonJS({
-  "../node_modules/.pnpm/debug@4.4.3/node_modules/debug/src/node.js"(exports$1, module) {
+  "../estuary-frontend/node_modules/.pnpm/debug@4.4.3/node_modules/debug/src/node.js"(exports, module) {
     var tty = __require("tty");
     var util = __require("util");
-    exports$1.init = init;
-    exports$1.log = log;
-    exports$1.formatArgs = formatArgs;
-    exports$1.save = save;
-    exports$1.load = load;
-    exports$1.useColors = useColors;
-    exports$1.destroy = util.deprecate(
+    exports.init = init;
+    exports.log = log;
+    exports.formatArgs = formatArgs;
+    exports.save = save;
+    exports.load = load;
+    exports.useColors = useColors;
+    exports.destroy = util.deprecate(
       () => {
       },
       "Instance method `debug.destroy()` is deprecated and no longer does anything. It will be removed in the next major version of `debug`."
     );
-    exports$1.colors = [6, 2, 3, 4, 5, 1];
+    exports.colors = [6, 2, 3, 4, 5, 1];
     try {
       const supportsColor = require_supports_color();
       if (supportsColor && (supportsColor.stderr || supportsColor).level >= 2) {
-        exports$1.colors = [
+        exports.colors = [
           20,
           21,
           26,
@@ -1129,7 +1129,7 @@ var require_node = __commonJS({
       }
     } catch (error) {
     }
-    exports$1.inspectOpts = Object.keys(process.env).filter((key) => {
+    exports.inspectOpts = Object.keys(process.env).filter((key) => {
       return /^debug_/i.test(key);
     }).reduce((obj, key) => {
       const prop = key.substring(6).toLowerCase().replace(/_([a-z])/g, (_, k) => {
@@ -1149,7 +1149,7 @@ var require_node = __commonJS({
       return obj;
     }, {});
     function useColors() {
-      return "colors" in exports$1.inspectOpts ? Boolean(exports$1.inspectOpts.colors) : tty.isatty(process.stderr.fd);
+      return "colors" in exports.inspectOpts ? Boolean(exports.inspectOpts.colors) : tty.isatty(process.stderr.fd);
     }
     function formatArgs(args) {
       const { namespace: name, useColors: useColors2 } = this;
@@ -1164,13 +1164,13 @@ var require_node = __commonJS({
       }
     }
     function getDate() {
-      if (exports$1.inspectOpts.hideDate) {
+      if (exports.inspectOpts.hideDate) {
         return "";
       }
       return (/* @__PURE__ */ new Date()).toISOString() + " ";
     }
     function log(...args) {
-      return process.stderr.write(util.formatWithOptions(exports$1.inspectOpts, ...args) + "\n");
+      return process.stderr.write(util.formatWithOptions(exports.inspectOpts, ...args) + "\n");
     }
     function save(namespaces) {
       if (namespaces) {
@@ -1182,14 +1182,14 @@ var require_node = __commonJS({
     function load() {
       return process.env.DEBUG;
     }
-    function init(debug12) {
-      debug12.inspectOpts = {};
-      const keys = Object.keys(exports$1.inspectOpts);
+    function init(debug8) {
+      debug8.inspectOpts = {};
+      const keys = Object.keys(exports.inspectOpts);
       for (let i = 0; i < keys.length; i++) {
-        debug12.inspectOpts[keys[i]] = exports$1.inspectOpts[keys[i]];
+        debug8.inspectOpts[keys[i]] = exports.inspectOpts[keys[i]];
       }
     }
-    module.exports = require_common()(exports$1);
+    module.exports = require_common()(exports);
     var { formatters } = module.exports;
     formatters.o = function(v) {
       this.inspectOpts.colors = this.useColors;
@@ -1202,9 +1202,9 @@ var require_node = __commonJS({
   }
 });
 
-// ../node_modules/.pnpm/debug@4.4.3/node_modules/debug/src/index.js
+// ../estuary-frontend/node_modules/.pnpm/debug@4.4.3/node_modules/debug/src/index.js
 var require_src = __commonJS({
-  "../node_modules/.pnpm/debug@4.4.3/node_modules/debug/src/index.js"(exports$1, module) {
+  "../estuary-frontend/node_modules/.pnpm/debug@4.4.3/node_modules/debug/src/index.js"(exports, module) {
     if (typeof process === "undefined" || process.type === "renderer" || process.browser === true || process.__nwjs) {
       module.exports = require_browser();
     } else {
@@ -1213,9 +1213,9 @@ var require_src = __commonJS({
   }
 });
 
-// ../node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/constants.js
+// ../estuary-frontend/node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/constants.js
 var require_constants = __commonJS({
-  "../node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/constants.js"(exports$1, module) {
+  "../estuary-frontend/node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/constants.js"(exports, module) {
     var BINARY_TYPES = ["nodebuffer", "arraybuffer", "fragments"];
     var hasBlob = typeof Blob !== "undefined";
     if (hasBlob) BINARY_TYPES.push("blob");
@@ -1234,9 +1234,9 @@ var require_constants = __commonJS({
   }
 });
 
-// ../node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/buffer-util.js
+// ../estuary-frontend/node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/buffer-util.js
 var require_buffer_util = __commonJS({
-  "../node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/buffer-util.js"(exports$1, module) {
+  "../estuary-frontend/node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/buffer-util.js"(exports, module) {
     var { EMPTY_BUFFER } = require_constants();
     var FastBuffer = Buffer[Symbol.species];
     function concat(list, totalLength2) {
@@ -1308,9 +1308,9 @@ var require_buffer_util = __commonJS({
   }
 });
 
-// ../node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/limiter.js
+// ../estuary-frontend/node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/limiter.js
 var require_limiter = __commonJS({
-  "../node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/limiter.js"(exports$1, module) {
+  "../estuary-frontend/node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/limiter.js"(exports, module) {
     var kDone = /* @__PURE__ */ Symbol("kDone");
     var kRun = /* @__PURE__ */ Symbol("kRun");
     var Limiter = class {
@@ -1357,9 +1357,9 @@ var require_limiter = __commonJS({
   }
 });
 
-// ../node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/permessage-deflate.js
+// ../estuary-frontend/node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/permessage-deflate.js
 var require_permessage_deflate = __commonJS({
-  "../node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/permessage-deflate.js"(exports$1, module) {
+  "../estuary-frontend/node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/permessage-deflate.js"(exports, module) {
     var zlib = __require("zlib");
     var bufferUtil = require_buffer_util();
     var Limiter = require_limiter();
@@ -1739,9 +1739,9 @@ var require_permessage_deflate = __commonJS({
   }
 });
 
-// ../node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/validation.js
+// ../estuary-frontend/node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/validation.js
 var require_validation = __commonJS({
-  "../node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/validation.js"(exports$1, module) {
+  "../estuary-frontend/node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/validation.js"(exports, module) {
     var { isUtf8 } = __require("buffer");
     var { hasBlob } = require_constants();
     var tokenChars = [
@@ -1939,9 +1939,9 @@ var require_validation = __commonJS({
   }
 });
 
-// ../node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/receiver.js
+// ../estuary-frontend/node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/receiver.js
 var require_receiver = __commonJS({
-  "../node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/receiver.js"(exports$1, module) {
+  "../estuary-frontend/node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/receiver.js"(exports, module) {
     var { Writable } = __require("stream");
     var PerMessageDeflate = require_permessage_deflate();
     var {
@@ -2530,9 +2530,9 @@ var require_receiver = __commonJS({
   }
 });
 
-// ../node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/sender.js
+// ../estuary-frontend/node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/sender.js
 var require_sender = __commonJS({
-  "../node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/sender.js"(exports$1, module) {
+  "../estuary-frontend/node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/sender.js"(exports, module) {
     var { Duplex } = __require("stream");
     var { randomFillSync } = __require("crypto");
     var PerMessageDeflate = require_permessage_deflate();
@@ -3017,9 +3017,9 @@ var require_sender = __commonJS({
   }
 });
 
-// ../node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/event-target.js
+// ../estuary-frontend/node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/event-target.js
 var require_event_target = __commonJS({
-  "../node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/event-target.js"(exports$1, module) {
+  "../estuary-frontend/node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/event-target.js"(exports, module) {
     var { kForOnEventAttribute, kListener } = require_constants();
     var kCode = /* @__PURE__ */ Symbol("kCode");
     var kData = /* @__PURE__ */ Symbol("kData");
@@ -3245,9 +3245,9 @@ var require_event_target = __commonJS({
   }
 });
 
-// ../node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/extension.js
+// ../estuary-frontend/node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/extension.js
 var require_extension = __commonJS({
-  "../node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/extension.js"(exports$1, module) {
+  "../estuary-frontend/node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/extension.js"(exports, module) {
     var { tokenChars } = require_validation();
     function push(dest, name, elem) {
       if (dest[name] === void 0) dest[name] = [elem];
@@ -3397,9 +3397,9 @@ var require_extension = __commonJS({
   }
 });
 
-// ../node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/websocket.js
+// ../estuary-frontend/node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/websocket.js
 var require_websocket = __commonJS({
-  "../node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/websocket.js"(exports$1, module) {
+  "../estuary-frontend/node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/websocket.js"(exports, module) {
     var EventEmitter = __require("events");
     var https = __require("https");
     var http = __require("http");
@@ -4279,9 +4279,9 @@ var require_websocket = __commonJS({
   }
 });
 
-// ../node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/stream.js
+// ../estuary-frontend/node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/stream.js
 var require_stream = __commonJS({
-  "../node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/stream.js"(exports$1, module) {
+  "../estuary-frontend/node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/stream.js"(exports, module) {
     require_websocket();
     var { Duplex } = __require("stream");
     function emitClose(stream) {
@@ -4376,9 +4376,9 @@ var require_stream = __commonJS({
   }
 });
 
-// ../node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/subprotocol.js
+// ../estuary-frontend/node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/subprotocol.js
 var require_subprotocol = __commonJS({
-  "../node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/subprotocol.js"(exports$1, module) {
+  "../estuary-frontend/node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/subprotocol.js"(exports, module) {
     var { tokenChars } = require_validation();
     function parse3(header) {
       const protocols = /* @__PURE__ */ new Set();
@@ -4420,9 +4420,9 @@ var require_subprotocol = __commonJS({
   }
 });
 
-// ../node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/websocket-server.js
+// ../estuary-frontend/node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/websocket-server.js
 var require_websocket_server = __commonJS({
-  "../node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/websocket-server.js"(exports$1, module) {
+  "../estuary-frontend/node_modules/.pnpm/ws@8.18.3/node_modules/ws/lib/websocket-server.js"(exports, module) {
     var EventEmitter = __require("events");
     var http = __require("http");
     var { Duplex } = __require("stream");
@@ -5027,8 +5027,20 @@ var init_websocket_voice = __esm({
 // src/voice/livekit-voice.ts
 var livekit_voice_exports = {};
 __export(livekit_voice_exports, {
-  LiveKitVoiceManager: () => LiveKitVoiceManager
+  LiveKitVoiceManager: () => LiveKitVoiceManager,
+  readLiveKitPlaybackMetadata: () => readLiveKitPlaybackMetadata
 });
+function readLiveKitPlaybackMetadata(changedAttributes, participantAttributes = {}) {
+  const read = (key) => changedAttributes[key] ?? participantAttributes[key];
+  const messageId = read("estuary.message_id");
+  const rawEpoch = read("estuary.tts_first_pcm_epoch_ms");
+  const parsedEpoch = rawEpoch === void 0 ? Number.NaN : Number(rawEpoch);
+  return {
+    transport: "livekit",
+    ...messageId ? { messageId } : {},
+    ...Number.isFinite(parsedEpoch) && parsedEpoch > 0 ? { ttsFirstPcmEpochMs: parsedEpoch } : {}
+  };
+}
 var LiveKitVoiceManager;
 var init_livekit_voice = __esm({
   "src/voice/livekit-voice.ts"() {
@@ -5048,6 +5060,7 @@ var init_livekit_voice = __esm({
       smoothedAudioLevel = 0;
       audioLevelPollTimer = null;
       _isBotSpeaking = false;
+      speakingMetadata = { transport: "livekit" };
       constructor(socketManager, logger) {
         this.socketManager = socketManager;
         this.logger = logger;
@@ -5124,7 +5137,7 @@ var init_livekit_voice = __esm({
           this.stopAudioLevelPolling();
           this.botParticipant = null;
           this.smoothedAudioLevel = 0;
-          this.speakingStateCallback?.(false);
+          this.speakingStateCallback?.(false, this.speakingMetadata);
         });
         try {
           await this.room.connect(tokenData.url, tokenData.token);
@@ -5142,15 +5155,33 @@ var init_livekit_voice = __esm({
           RoomEvent.ParticipantAttributesChanged,
           (changedAttributes, participant) => {
             if (participant === this.room?.localParticipant) return;
-            const state = changedAttributes["estuary.state"];
-            if (state === "speaking") {
+            const participantAttributes = participant?.attributes ?? {};
+            const metadata = readLiveKitPlaybackMetadata(
+              changedAttributes,
+              participantAttributes
+            );
+            const messageChanged = Object.prototype.hasOwnProperty.call(
+              changedAttributes,
+              "estuary.message_id"
+            );
+            if (messageChanged && metadata.messageId !== this.speakingMetadata.messageId) {
+              this.speakingMetadata = metadata;
+            } else {
+              this.speakingMetadata = { ...this.speakingMetadata, ...metadata };
+            }
+            const state = changedAttributes["estuary.state"] ?? participantAttributes["estuary.state"];
+            const stateChanged = Object.prototype.hasOwnProperty.call(
+              changedAttributes,
+              "estuary.state"
+            );
+            if (state === "speaking" && (stateChanged || messageChanged)) {
               this._isBotSpeaking = true;
-              this.speakingStateCallback?.(true);
+              this.speakingStateCallback?.(true, this.speakingMetadata);
               this.startAudioLevelPolling();
-            } else if (state === "idle") {
+            } else if (state === "idle" && stateChanged) {
               this._isBotSpeaking = false;
               this.stopAudioLevelPolling();
-              this.speakingStateCallback?.(false);
+              this.speakingStateCallback?.(false, this.speakingMetadata);
               this.audioLevelCallback?.(0);
             }
           }
@@ -5194,7 +5225,7 @@ var init_livekit_voice = __esm({
         this.stopAudioLevelPolling();
         this.botParticipant = null;
         this.smoothedAudioLevel = 0;
-        this.speakingStateCallback?.(false);
+        this.speakingStateCallback?.(false, this.speakingMetadata);
         if (this.room) {
           for (const [, publication] of this.room.localParticipant.trackPublications) {
             if (publication.track) {
@@ -5227,6 +5258,7 @@ var init_livekit_voice = __esm({
         this.stopAudioLevelPolling();
         this.botParticipant = null;
         this.smoothedAudioLevel = 0;
+        this.speakingMetadata = { transport: "livekit" };
         if (this.room) {
           this.room.disconnect();
           this.room = null;
@@ -5291,10 +5323,10 @@ var init_livekit_voice = __esm({
   }
 });
 
-// ../node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm-debug/transports/polling-xhr.node.js
+// ../estuary-frontend/node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm-debug/transports/polling-xhr.node.js
 var XMLHttpRequestModule = __toESM(require_XMLHttpRequest());
 
-// ../node_modules/.pnpm/engine.io-parser@5.2.3/node_modules/engine.io-parser/build/esm/commons.js
+// ../estuary-frontend/node_modules/.pnpm/engine.io-parser@5.2.3/node_modules/engine.io-parser/build/esm/commons.js
 var PACKET_TYPES = /* @__PURE__ */ Object.create(null);
 PACKET_TYPES["open"] = "0";
 PACKET_TYPES["close"] = "1";
@@ -5309,7 +5341,7 @@ Object.keys(PACKET_TYPES).forEach((key) => {
 });
 var ERROR_PACKET = { type: "error", data: "parser error" };
 
-// ../node_modules/.pnpm/engine.io-parser@5.2.3/node_modules/engine.io-parser/build/esm/encodePacket.js
+// ../estuary-frontend/node_modules/.pnpm/engine.io-parser@5.2.3/node_modules/engine.io-parser/build/esm/encodePacket.js
 var encodePacket = ({ type, data }, supportsBinary, callback) => {
   if (data instanceof ArrayBuffer || ArrayBuffer.isView(data)) {
     return callback(supportsBinary ? data : "b" + toBuffer(data, true).toString("base64"));
@@ -5338,7 +5370,7 @@ function encodePacketToBinary(packet, callback) {
   });
 }
 
-// ../node_modules/.pnpm/engine.io-parser@5.2.3/node_modules/engine.io-parser/build/esm/decodePacket.js
+// ../estuary-frontend/node_modules/.pnpm/engine.io-parser@5.2.3/node_modules/engine.io-parser/build/esm/decodePacket.js
 var decodePacket = (encodedPacket, binaryType) => {
   if (typeof encodedPacket !== "string") {
     return {
@@ -5384,7 +5416,7 @@ var mapBinary = (data, binaryType) => {
   }
 };
 
-// ../node_modules/.pnpm/engine.io-parser@5.2.3/node_modules/engine.io-parser/build/esm/index.js
+// ../estuary-frontend/node_modules/.pnpm/engine.io-parser@5.2.3/node_modules/engine.io-parser/build/esm/index.js
 var SEPARATOR = String.fromCharCode(30);
 var encodePayload = (packets, callback) => {
   const length = packets.length;
@@ -5526,7 +5558,7 @@ function createPacketDecoderStream(maxPayload, binaryType) {
 }
 var protocol = 4;
 
-// ../node_modules/.pnpm/@socket.io+component-emitter@3.1.2/node_modules/@socket.io/component-emitter/lib/esm/index.js
+// ../estuary-frontend/node_modules/.pnpm/@socket.io+component-emitter@3.1.2/node_modules/@socket.io/component-emitter/lib/esm/index.js
 function Emitter(obj) {
   if (obj) return mixin(obj);
 }
@@ -5598,7 +5630,7 @@ Emitter.prototype.hasListeners = function(event) {
   return !!this.listeners(event).length;
 };
 
-// ../node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm-debug/globals.node.js
+// ../estuary-frontend/node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm-debug/globals.node.js
 var nextTick = process.nextTick;
 var globalThisShim = global;
 var defaultBinaryType = "nodebuffer";
@@ -5685,7 +5717,7 @@ var CookieJar = class {
   }
 };
 
-// ../node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm-debug/util.js
+// ../estuary-frontend/node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm-debug/util.js
 function pick(obj, ...attr) {
   return attr.reduce((acc, k) => {
     if (obj.hasOwnProperty(k)) {
@@ -5733,7 +5765,7 @@ function randomString() {
   return Date.now().toString(36).substring(3) + Math.random().toString(36).substring(2, 5);
 }
 
-// ../node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm-debug/contrib/parseqs.js
+// ../estuary-frontend/node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm-debug/contrib/parseqs.js
 function encode(obj) {
   let str = "";
   for (let i in obj) {
@@ -5755,7 +5787,7 @@ function decode(qs) {
   return qry;
 }
 
-// ../node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm-debug/transport.js
+// ../estuary-frontend/node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm-debug/transport.js
 var import_debug = __toESM(require_src());
 var debug = (0, import_debug.default)("engine.io-client:transport");
 var TransportError = class extends Error {
@@ -5889,7 +5921,7 @@ var Transport = class extends Emitter {
   }
 };
 
-// ../node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm-debug/transports/polling.js
+// ../estuary-frontend/node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm-debug/transports/polling.js
 var import_debug2 = __toESM(require_src());
 var debug2 = (0, import_debug2.default)("engine.io-client:polling");
 var Polling = class extends Transport {
@@ -6034,7 +6066,7 @@ var Polling = class extends Transport {
   }
 };
 
-// ../node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm-debug/contrib/has-cors.js
+// ../estuary-frontend/node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm-debug/contrib/has-cors.js
 var value = false;
 try {
   value = typeof XMLHttpRequest !== "undefined" && "withCredentials" in new XMLHttpRequest();
@@ -6042,7 +6074,7 @@ try {
 }
 var hasCORS = value;
 
-// ../node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm-debug/transports/polling-xhr.js
+// ../estuary-frontend/node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm-debug/transports/polling-xhr.js
 var import_debug3 = __toESM(require_src());
 var debug3 = (0, import_debug3.default)("engine.io-client:polling");
 function empty() {
@@ -6277,7 +6309,7 @@ function newRequest(opts) {
   }
 }
 
-// ../node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm-debug/transports/polling-xhr.node.js
+// ../estuary-frontend/node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm-debug/transports/polling-xhr.node.js
 var XMLHttpRequest2 = XMLHttpRequestModule.default || XMLHttpRequestModule;
 var XHR = class extends BaseXHR {
   request(opts = {}) {
@@ -6287,14 +6319,14 @@ var XHR = class extends BaseXHR {
   }
 };
 
-// ../node_modules/.pnpm/ws@8.18.3/node_modules/ws/wrapper.mjs
+// ../estuary-frontend/node_modules/.pnpm/ws@8.18.3/node_modules/ws/wrapper.mjs
 __toESM(require_stream());
 __toESM(require_receiver());
 __toESM(require_sender());
 var import_websocket = __toESM(require_websocket());
 __toESM(require_websocket_server());
 
-// ../node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm-debug/transports/websocket.js
+// ../estuary-frontend/node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm-debug/transports/websocket.js
 var import_debug4 = __toESM(require_src());
 var debug4 = (0, import_debug4.default)("engine.io-client:websocket");
 var isReactNative = typeof navigator !== "undefined" && typeof navigator.product === "string" && navigator.product.toLowerCase() === "reactnative";
@@ -6382,7 +6414,7 @@ var BaseWS = class extends Transport {
   }
 };
 
-// ../node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm-debug/transports/websocket.node.js
+// ../estuary-frontend/node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm-debug/transports/websocket.node.js
 var WS = class extends BaseWS {
   createSocket(uri, protocols, opts) {
     var _a;
@@ -6413,7 +6445,7 @@ var WS = class extends BaseWS {
   }
 };
 
-// ../node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm-debug/transports/webtransport.js
+// ../estuary-frontend/node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm-debug/transports/webtransport.js
 var import_debug5 = __toESM(require_src());
 var debug5 = (0, import_debug5.default)("engine.io-client:webtransport");
 var WT = class extends Transport {
@@ -6483,14 +6515,14 @@ var WT = class extends Transport {
   }
 };
 
-// ../node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm-debug/transports/index.js
+// ../estuary-frontend/node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm-debug/transports/index.js
 var transports = {
   websocket: WS,
   webtransport: WT,
   polling: XHR
 };
 
-// ../node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm-debug/contrib/parseuri.js
+// ../estuary-frontend/node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm-debug/contrib/parseuri.js
 var re = /^(?:(?![^:@\/?#]+:[^:@\/]*@)(http|https|ws|wss):\/\/)?((?:(([^:@\/?#]*)(?::([^:@\/?#]*))?)?@)?((?:[a-f0-9]{0,4}:){2,7}[a-f0-9]{0,4}|[^:\/?#]*)(?::(\d*))?)(((\/(?:[^?#](?![^?#\/]*\.[^?#\/.]+(?:[?#]|$)))*\/?)?([^?#\/]*))(?:\?([^#]*))?(?:#(.*))?)/;
 var parts = [
   "source",
@@ -6550,7 +6582,7 @@ function queryKey(uri, query) {
   return data;
 }
 
-// ../node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm-debug/socket.js
+// ../estuary-frontend/node_modules/.pnpm/engine.io-client@6.6.4/node_modules/engine.io-client/build/esm-debug/socket.js
 var import_debug6 = __toESM(require_src());
 var debug6 = (0, import_debug6.default)("engine.io-client:socket");
 var withEventListeners = typeof addEventListener === "function" && typeof removeEventListener === "function";
@@ -7146,9 +7178,7 @@ var Socket = class extends SocketWithUpgrade {
   }
 };
 
-// ../node_modules/.pnpm/socket.io-client@4.8.3/node_modules/socket.io-client/build/esm-debug/url.js
-var import_debug7 = __toESM(require_src());
-var debug7 = (0, import_debug7.default)("socket.io-client:url");
+// ../estuary-frontend/node_modules/.pnpm/socket.io-client@4.8.3/node_modules/socket.io-client/build/esm/url.js
 function url(uri, path = "", loc) {
   let obj = uri;
   loc = loc || typeof location !== "undefined" && location;
@@ -7163,14 +7193,12 @@ function url(uri, path = "", loc) {
       }
     }
     if (!/^(https?|wss?):\/\//.test(uri)) {
-      debug7("protocol-less url %s", uri);
       if ("undefined" !== typeof loc) {
         uri = loc.protocol + "//" + uri;
       } else {
         uri = "https://" + uri;
       }
     }
-    debug7("parse %s", uri);
     obj = parse2(uri);
   }
   if (!obj.port) {
@@ -7188,7 +7216,7 @@ function url(uri, path = "", loc) {
   return obj;
 }
 
-// ../node_modules/.pnpm/socket.io-parser@4.2.5/node_modules/socket.io-parser/build/esm-debug/index.js
+// ../estuary-frontend/node_modules/.pnpm/socket.io-parser@4.2.5/node_modules/socket.io-parser/build/esm-debug/index.js
 var esm_debug_exports = {};
 __export(esm_debug_exports, {
   Decoder: () => Decoder,
@@ -7198,7 +7226,7 @@ __export(esm_debug_exports, {
   protocol: () => protocol3
 });
 
-// ../node_modules/.pnpm/socket.io-parser@4.2.5/node_modules/socket.io-parser/build/esm-debug/is-binary.js
+// ../estuary-frontend/node_modules/.pnpm/socket.io-parser@4.2.5/node_modules/socket.io-parser/build/esm-debug/is-binary.js
 var withNativeArrayBuffer = typeof ArrayBuffer === "function";
 var isView = (obj) => {
   return typeof ArrayBuffer.isView === "function" ? ArrayBuffer.isView(obj) : obj.buffer instanceof ArrayBuffer;
@@ -7235,7 +7263,7 @@ function hasBinary(obj, toJSON) {
   return false;
 }
 
-// ../node_modules/.pnpm/socket.io-parser@4.2.5/node_modules/socket.io-parser/build/esm-debug/binary.js
+// ../estuary-frontend/node_modules/.pnpm/socket.io-parser@4.2.5/node_modules/socket.io-parser/build/esm-debug/binary.js
 function deconstructPacket(packet) {
   const buffers = [];
   const packetData = packet.data;
@@ -7297,9 +7325,9 @@ function _reconstructPacket(data, buffers) {
   return data;
 }
 
-// ../node_modules/.pnpm/socket.io-parser@4.2.5/node_modules/socket.io-parser/build/esm-debug/index.js
-var import_debug8 = __toESM(require_src());
-var debug8 = (0, import_debug8.default)("socket.io-parser");
+// ../estuary-frontend/node_modules/.pnpm/socket.io-parser@4.2.5/node_modules/socket.io-parser/build/esm-debug/index.js
+var import_debug7 = __toESM(require_src());
+var debug7 = (0, import_debug7.default)("socket.io-parser");
 var RESERVED_EVENTS = [
   "connect",
   // used on the client side
@@ -7341,7 +7369,7 @@ var Encoder = class {
    * @param {Object} obj - packet object
    */
   encode(obj) {
-    debug8("encoding packet %j", obj);
+    debug7("encoding packet %j", obj);
     if (obj.type === PacketType.EVENT || obj.type === PacketType.ACK) {
       if (hasBinary(obj)) {
         return this.encodeAsBinary({
@@ -7371,7 +7399,7 @@ var Encoder = class {
     if (null != obj.data) {
       str += JSON.stringify(obj.data, this.replacer);
     }
-    debug8("encoded %j as %s", obj, str);
+    debug7("encoded %j as %s", obj, str);
     return str;
   }
   /**
@@ -7492,7 +7520,7 @@ var Decoder = class _Decoder extends Emitter {
         throw new Error("invalid payload");
       }
     }
-    debug8("decoded %s as %j", str, p);
+    debug7("decoded %s as %j", str, p);
     return p;
   }
   tryParse(str) {
@@ -7591,7 +7619,7 @@ function isPacketValid(packet) {
   return isNamespaceValid(packet.nsp) && isAckIdValid(packet.id) && isDataValid(packet.type, packet.data);
 }
 
-// ../node_modules/.pnpm/socket.io-client@4.8.3/node_modules/socket.io-client/build/esm-debug/on.js
+// ../estuary-frontend/node_modules/.pnpm/socket.io-client@4.8.3/node_modules/socket.io-client/build/esm/on.js
 function on(obj, ev, fn) {
   obj.on(ev, fn);
   return function subDestroy() {
@@ -7599,9 +7627,7 @@ function on(obj, ev, fn) {
   };
 }
 
-// ../node_modules/.pnpm/socket.io-client@4.8.3/node_modules/socket.io-client/build/esm-debug/socket.js
-var import_debug9 = __toESM(require_src());
-var debug9 = (0, import_debug9.default)("socket.io-client:socket");
+// ../estuary-frontend/node_modules/.pnpm/socket.io-client@4.8.3/node_modules/socket.io-client/build/esm/socket.js
 var RESERVED_EVENTS2 = Object.freeze({
   connect: 1,
   connect_error: 1,
@@ -7769,7 +7795,6 @@ var Socket2 = class extends Emitter {
     packet.options.compress = this.flags.compress !== false;
     if ("function" === typeof args[args.length - 1]) {
       const id = this.ids++;
-      debug9("emitting packet with ack id %d", id);
       const ack = args.pop();
       this._registerAckCallback(id, ack);
       packet.id = id;
@@ -7777,9 +7802,7 @@ var Socket2 = class extends Emitter {
     const isTransportWritable = (_b = (_a = this.io.engine) === null || _a === void 0 ? void 0 : _a.transport) === null || _b === void 0 ? void 0 : _b.writable;
     const isConnected = this.connected && !((_c = this.io.engine) === null || _c === void 0 ? void 0 : _c._hasPingExpired());
     const discardPacket = this.flags.volatile && !isTransportWritable;
-    if (discardPacket) {
-      debug9("discard packet as the transport is not currently writable");
-    } else if (isConnected) {
+    if (discardPacket) ; else if (isConnected) {
       this.notifyOutgoingListeners(packet);
       this.packet(packet);
     } else {
@@ -7802,11 +7825,9 @@ var Socket2 = class extends Emitter {
       delete this.acks[id];
       for (let i = 0; i < this.sendBuffer.length; i++) {
         if (this.sendBuffer[i].id === id) {
-          debug9("removing packet with ack id %d from the buffer", id);
           this.sendBuffer.splice(i, 1);
         }
       }
-      debug9("event with ack id %d has timed out after %d ms", id, timeout);
       ack.call(this, new Error("operation has timed out"));
     }, timeout);
     const fn = (...args) => {
@@ -7860,20 +7881,16 @@ var Socket2 = class extends Emitter {
       flags: Object.assign({ fromQueue: true }, this.flags)
     };
     args.push((err, ...responseArgs) => {
-      if (packet !== this._queue[0]) {
-        return debug9("packet [%d] already acknowledged", packet.id);
-      }
+      if (packet !== this._queue[0]) ;
       const hasError = err !== null;
       if (hasError) {
         if (packet.tryCount > this._opts.retries) {
-          debug9("packet [%d] is discarded after %d tries", packet.id, packet.tryCount);
           this._queue.shift();
           if (ack) {
             ack(err);
           }
         }
       } else {
-        debug9("packet [%d] was successfully sent", packet.id);
         this._queue.shift();
         if (ack) {
           ack(null, ...responseArgs);
@@ -7892,18 +7909,15 @@ var Socket2 = class extends Emitter {
    * @private
    */
   _drainQueue(force = false) {
-    debug9("draining queue");
     if (!this.connected || this._queue.length === 0) {
       return;
     }
     const packet = this._queue[0];
     if (packet.pending && !force) {
-      debug9("packet [%d] has already been sent and is waiting for an ack", packet.id);
       return;
     }
     packet.pending = true;
     packet.tryCount++;
-    debug9("sending packet [%d] (try n\xB0%d)", packet.id, packet.tryCount);
     this.flags = packet.flags;
     this.emit.apply(this, packet.args);
   }
@@ -7923,7 +7937,6 @@ var Socket2 = class extends Emitter {
    * @private
    */
   onopen() {
-    debug9("transport is open - connecting");
     if (typeof this.auth == "function") {
       this.auth((data) => {
         this._sendConnectPacket(data);
@@ -7963,7 +7976,6 @@ var Socket2 = class extends Emitter {
    * @private
    */
   onclose(reason, description) {
-    debug9("close (%s)", reason);
     this.connected = false;
     delete this.id;
     this.emitReserved("disconnect", reason, description);
@@ -8032,9 +8044,7 @@ var Socket2 = class extends Emitter {
    */
   onevent(packet) {
     const args = packet.data || [];
-    debug9("emitting event %j", args);
     if (null != packet.id) {
-      debug9("attaching ack callback to event");
       args.push(this.ack(packet.id));
     }
     if (this.connected) {
@@ -8067,7 +8077,6 @@ var Socket2 = class extends Emitter {
       if (sent)
         return;
       sent = true;
-      debug9("sending ack %j", args);
       self.packet({
         type: PacketType.ACK,
         id,
@@ -8084,11 +8093,9 @@ var Socket2 = class extends Emitter {
   onack(packet) {
     const ack = this.acks[packet.id];
     if (typeof ack !== "function") {
-      debug9("bad ack %s", packet.id);
       return;
     }
     delete this.acks[packet.id];
-    debug9("calling ack %s with %j", packet.id, packet.data);
     if (ack.withError) {
       packet.data.unshift(null);
     }
@@ -8100,7 +8107,6 @@ var Socket2 = class extends Emitter {
    * @private
    */
   onconnect(id, pid) {
-    debug9("socket connected with id %s", id);
     this.id = id;
     this.recovered = pid && this._pid === pid;
     this._pid = pid;
@@ -8129,7 +8135,6 @@ var Socket2 = class extends Emitter {
    * @private
    */
   ondisconnect() {
-    debug9("server disconnect (%s)", this.nsp);
     this.destroy();
     this.onclose("io server disconnect");
   }
@@ -8165,7 +8170,6 @@ var Socket2 = class extends Emitter {
    */
   disconnect() {
     if (this.connected) {
-      debug9("performing disconnect (%s)", this.nsp);
       this.packet({ type: PacketType.DISCONNECT });
     }
     this.destroy();
@@ -8394,7 +8398,7 @@ var Socket2 = class extends Emitter {
   }
 };
 
-// ../node_modules/.pnpm/socket.io-client@4.8.3/node_modules/socket.io-client/build/esm-debug/contrib/backo2.js
+// ../estuary-frontend/node_modules/.pnpm/socket.io-client@4.8.3/node_modules/socket.io-client/build/esm/contrib/backo2.js
 function Backoff(opts) {
   opts = opts || {};
   this.ms = opts.min || 100;
@@ -8425,9 +8429,7 @@ Backoff.prototype.setJitter = function(jitter) {
   this.jitter = jitter;
 };
 
-// ../node_modules/.pnpm/socket.io-client@4.8.3/node_modules/socket.io-client/build/esm-debug/manager.js
-var import_debug10 = __toESM(require_src());
-var debug10 = (0, import_debug10.default)("socket.io-client:manager");
+// ../estuary-frontend/node_modules/.pnpm/socket.io-client@4.8.3/node_modules/socket.io-client/build/esm/manager.js
 var Manager = class extends Emitter {
   constructor(uri, opts) {
     var _a;
@@ -8526,10 +8528,8 @@ var Manager = class extends Emitter {
    * @public
    */
   open(fn) {
-    debug10("readyState %s", this._readyState);
     if (~this._readyState.indexOf("open"))
       return this;
-    debug10("opening %s", this.uri);
     this.engine = new Socket(this.uri, this.opts);
     const socket = this.engine;
     const self = this;
@@ -8540,7 +8540,6 @@ var Manager = class extends Emitter {
       fn && fn();
     });
     const onError = (err) => {
-      debug10("error");
       this.cleanup();
       this._readyState = "closed";
       this.emitReserved("error", err);
@@ -8553,9 +8552,7 @@ var Manager = class extends Emitter {
     const errorSub = on(socket, "error", onError);
     if (false !== this._timeout) {
       const timeout = this._timeout;
-      debug10("connect attempt will timeout after %d", timeout);
       const timer = this.setTimeoutFn(() => {
-        debug10("connect attempt timed out after %d", timeout);
         openSubDestroy();
         onError(new Error("timeout"));
         socket.close();
@@ -8586,7 +8583,6 @@ var Manager = class extends Emitter {
    * @private
    */
   onopen() {
-    debug10("open");
     this.cleanup();
     this._readyState = "open";
     this.emitReserved("open");
@@ -8636,7 +8632,6 @@ var Manager = class extends Emitter {
    * @private
    */
   onerror(err) {
-    debug10("error", err);
     this.emitReserved("error", err);
   }
   /**
@@ -8666,7 +8661,6 @@ var Manager = class extends Emitter {
     for (const nsp of nsps) {
       const socket2 = this.nsps[nsp];
       if (socket2.active) {
-        debug10("socket %s is still active, skipping close", nsp);
         return;
       }
     }
@@ -8679,7 +8673,6 @@ var Manager = class extends Emitter {
    * @private
    */
   _packet(packet) {
-    debug10("writing packet %j", packet);
     const encodedPackets = this.encoder.encode(packet);
     for (let i = 0; i < encodedPackets.length; i++) {
       this.engine.write(encodedPackets[i], packet.options);
@@ -8691,7 +8684,6 @@ var Manager = class extends Emitter {
    * @private
    */
   cleanup() {
-    debug10("cleanup");
     this.subs.forEach((subDestroy) => subDestroy());
     this.subs.length = 0;
     this.decoder.destroy();
@@ -8702,7 +8694,6 @@ var Manager = class extends Emitter {
    * @private
    */
   _close() {
-    debug10("disconnect");
     this.skipReconnect = true;
     this._reconnecting = false;
     this.onclose("forced close");
@@ -8726,7 +8717,6 @@ var Manager = class extends Emitter {
    */
   onclose(reason, description) {
     var _a;
-    debug10("closed due to %s", reason);
     this.cleanup();
     (_a = this.engine) === null || _a === void 0 ? void 0 : _a.close();
     this.backoff.reset();
@@ -8746,29 +8736,24 @@ var Manager = class extends Emitter {
       return this;
     const self = this;
     if (this.backoff.attempts >= this._reconnectionAttempts) {
-      debug10("reconnect failed");
       this.backoff.reset();
       this.emitReserved("reconnect_failed");
       this._reconnecting = false;
     } else {
       const delay = this.backoff.duration();
-      debug10("will wait %dms before reconnect attempt", delay);
       this._reconnecting = true;
       const timer = this.setTimeoutFn(() => {
         if (self.skipReconnect)
           return;
-        debug10("attempting reconnect");
         this.emitReserved("reconnect_attempt", self.backoff.attempts);
         if (self.skipReconnect)
           return;
         self.open((err) => {
           if (err) {
-            debug10("reconnect attempt error");
             self._reconnecting = false;
             self.reconnect();
             this.emitReserved("reconnect_error", err);
           } else {
-            debug10("reconnect success");
             self.onreconnect();
           }
         });
@@ -8794,9 +8779,7 @@ var Manager = class extends Emitter {
   }
 };
 
-// ../node_modules/.pnpm/socket.io-client@4.8.3/node_modules/socket.io-client/build/esm-debug/index.js
-var import_debug11 = __toESM(require_src());
-var debug11 = (0, import_debug11.default)("socket.io-client");
+// ../estuary-frontend/node_modules/.pnpm/socket.io-client@4.8.3/node_modules/socket.io-client/build/esm/index.js
 var cache = {};
 function lookup(uri, opts) {
   if (typeof uri === "object") {
@@ -8812,11 +8795,9 @@ function lookup(uri, opts) {
   const newConnection = opts.forceNew || opts["force new connection"] || false === opts.multiplex || sameNamespace;
   let io;
   if (newConnection) {
-    debug11("ignoring socket cache for %s", source);
     io = new Manager(source, opts);
   } else {
     if (!cache[id]) {
-      debug11("new io instance for %s", source);
       cache[id] = new Manager(source, opts);
     }
     io = cache[id];
@@ -9694,8 +9675,8 @@ function int16ToFloat32(int16) {
 // src/utils/logger.ts
 var Logger = class {
   enabled;
-  constructor(debug12 = false) {
-    this.enabled = debug12;
+  constructor(debug8 = false) {
+    this.enabled = debug8;
   }
   setDebug(enabled) {
     this.enabled = enabled;
@@ -10003,6 +9984,7 @@ var EstuaryClient = class extends TypedEventEmitter {
   _hasAutoInterrupted = false;
   _autoInterruptGraceTimer = null;
   _isLiveKitSpeaking = false;
+  _liveKitPlaybackMessageId = null;
   _activeScript = null;
   constructor(config) {
     super();
@@ -10247,18 +10229,24 @@ var EstuaryClient = class extends TypedEventEmitter {
       });
     }
     await this.voiceManager.start();
-    this.voiceManager.setSpeakingStateCallback?.((speaking) => {
-      this._isLiveKitSpeaking = speaking;
+    this.voiceManager.setSpeakingStateCallback?.((speaking, metadata) => {
+      const messageId = metadata?.messageId ?? this._liveKitPlaybackMessageId ?? "livekit-audio";
       if (speaking) {
+        const isNewPlayback = !this._isLiveKitSpeaking || messageId !== this._liveKitPlaybackMessageId;
+        this._isLiveKitSpeaking = true;
+        this._liveKitPlaybackMessageId = messageId;
+        if (!isNewPlayback) return;
         this.startPlaybackGrace();
-        this.emit("audioPlaybackStarted", "livekit-audio");
+        this.emit("audioPlaybackStarted", messageId, metadata);
         if (this.config.suppressMicDuringPlayback) {
           this.voiceManager?.setSuppressed?.(true);
         }
       } else {
-        this.emit("audioPlaybackComplete", "livekit-audio");
+        this._isLiveKitSpeaking = false;
+        this._liveKitPlaybackMessageId = null;
+        this.emit("audioPlaybackComplete", messageId);
         this.emit("botAudioLevel", 0);
-        this.notifyAudioPlaybackComplete("livekit-audio");
+        this.notifyAudioPlaybackComplete(messageId);
         if (this.config.suppressMicDuringPlayback) {
           this.voiceManager?.setSuppressed?.(false);
         }
