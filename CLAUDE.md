@@ -146,9 +146,11 @@ npm run lint           # ESLint
 npm run format         # Prettier
 ```
 
-### Repo hygiene warning
+### Repo hygiene
 
-This repo has **no `.gitignore`**, and as a result ~3,000 `node_modules/` files plus `dist/` are tracked in git. Two consequences: `git add -A` will sweep in dependency churn, and a `git grep` will return hits from inside third-party packages. Scope both to `src/` and `tests/`. Adding a `.gitignore` and untracking those paths is worth doing, but it is a large, disruptive commit — do it deliberately, not as a side effect of another change.
+Dependencies and generated build output are intentionally excluded from git via
+`.gitignore`. Run `npm install` to recreate `node_modules/` and `npm run build` to
+recreate `dist/`; do not force-add either directory.
 
 ## Code Style
 

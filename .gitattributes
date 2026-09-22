@@ -14,12 +14,6 @@
 
 *.sh text eol=lf
 
-# node_modules and dist/ are tracked in this repo (they should not be — see
-# CLAUDE.md). Marking them generated keeps them out of diffs and off GitHub's
-# language stats; it does not untrack them.
-node_modules/** linguist-vendored -diff
-dist/**         linguist-generated -diff
-
 # Binary assets.
 *.png  binary
 *.jpg  binary
