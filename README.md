@@ -107,6 +107,49 @@ await client.startVoice();
 client.toggleMute();
 ```
 
+### Push-to-talk
+
+Set `voiceMode: 'push_to_talk'` with either voice transport:
+
+```typescript
+const client = new EstuaryClient({
+  serverUrl: 'https://api.estuary-ai.com',
+  apiKey: 'est_...',
+  characterId: '...',
+  playerId: '...',
+  voiceTransport: 'livekit', // 'websocket' also supported
+  voiceMode: 'push_to_talk',
+});
+
+await client.connect();
+await client.startVoice();       // Prepare the microphone; transmission stays off
+await client.beginPushToTalk();  // Button down; await readiness before speaking
+// Speak while the button is held. Pauses do not submit the turn.
+await client.endPushToTalk();    // Button up; finalize one turn, keep voice prepared
+// Repeat begin/end for the next turn.
+await client.stopVoice();        // End the call and release the microphone
+```
+
+Bind release to pointer-up, pointer-cancel, lost pointer capture, and keyboard
+key-up/blur as appropriate. A release during a pending press cancels transmission;
+check `client.isPushToTalkActive` after awaiting a press before showing a recording
+indicator. Duplicate press/release calls are safe. Always handle rejected promises.
+
+LiveKit keeps its room connected between presses. WebSocket prepares a new speech
+stream per press and flushes the final captured audio block before release. Await
+`beginPushToTalk()` before prompting speech and `endPushToTalk()` before starting a
+new turn. A rapid LiveKit re-press may merge with the preceding turn during the
+server's release grace period. The microphone can remain acquired between turns;
+use `stopVoice()` to release the device.
+
+`toggleMute()` and `suppressMicDuringPlayback` still independently block microphone
+transmission; `isMuted` reports the user mute toggle, while `isPushToTalkActive`
+reports the held button, including pending readiness. Reconnect/page resume prepares
+PTT with the button released. The mode is fixed at client construction because PTT
+is sticky for the server session; use a new client/connection to change modes.
+On a PTT command timeout, reconnect before retrying so a late command cannot affect
+a new turn. The default `voiceMode: 'continuous'` retains automatic turn detection.
+
 ### Interrupts
 
 Interrupt the bot's current response (stops audio playback and generation):
@@ -290,6 +333,7 @@ interface EstuaryConfig {
   reconnectDelayMs?: number;   // Default: 2000
   debug?: boolean;             // Default: false
   voiceTransport?: 'websocket' | 'livekit' | 'auto'; // Default: 'auto'
+  voiceMode?: 'continuous' | 'push_to_talk'; // Default: 'continuous'
   realtimeMemory?: boolean;    // Enable real-time memory extraction events. Default: false
   suppressMicDuringPlayback?: boolean; // Mute mic while bot audio plays (software AEC). Default: false
   autoInterruptOnSpeech?: boolean;     // Interrupt bot audio when user speaks. Default: true
@@ -327,7 +371,7 @@ const client = new EstuaryClient({
 
 By default the SDK manages the browser page lifecycle for voice sessions. When the page is hidden or dismissed (home button, tab switch, iOS App Clip close), voice is released — the LiveKit room is left so character audio and billing stop immediately. When the page becomes visible again, voice resumes automatically, reconnecting the socket first when the backgrounded one has gone stale. The same applies to unexpected disconnects: voice restarts once the connection is re-established.
 
-`voiceStopped`/`voiceStarted` events fire on these transitions, so apps can keep UI state (mute buttons, indicators) in sync. Note the resumed mic comes up unmuted — re-apply your mute state in a `voiceStarted` handler if your UI has one. Set `manageBrowserLifecycle: false` and/or `resumeVoiceOnReconnect: false` to handle these yourself.
+`voiceStopped`/`voiceStarted` events fire on these transitions, so apps can keep UI state (mute buttons, indicators) in sync. Continuous voice resumes unmuted; PTT resumes with the talk button released. Re-apply your mute state in a `voiceStarted` handler if your UI has one. Set `manageBrowserLifecycle: false` and/or `resumeVoiceOnReconnect: false` to handle these yourself.
 
 ## Runtime Properties
 
@@ -336,6 +380,7 @@ client.connectionState     // ConnectionState enum (Disconnected, Connecting, Co
 client.isConnected         // boolean shorthand
 client.isVoiceActive       // true while voice session is running
 client.isMuted             // current mute state
+client.isPushToTalkActive  // talk button held (including pending readiness)
 client.suppressMicDuringPlayback // get/set at runtime without reconnecting
 client.session             // SessionInfo | null after connect
 ```

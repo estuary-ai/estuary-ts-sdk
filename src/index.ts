@@ -11,6 +11,7 @@ export { EstuaryError, ErrorCode } from './errors';
 export type {
   EstuaryConfig,
   VoiceTransport,
+  VoiceMode,
   SessionCapabilities,
   SessionInfo,
   CharacterInfo,

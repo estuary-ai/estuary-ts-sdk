@@ -23,6 +23,9 @@ export interface EstuaryConfig {
   debug?: boolean;
   /** Voice transport: 'websocket' | 'livekit' | 'auto' (default: 'auto') */
   voiceTransport?: VoiceTransport;
+  /** 'continuous' (default) or explicit press/release with beginPushToTalk()/endPushToTalk().
+   *  Choose before connecting; the server keeps PTT enabled until reconnect. */
+  voiceMode?: VoiceMode;
   /** Enable real-time memory extraction after each response (default: false) */
   realtimeMemory?: boolean;
   /** Suppress mic during TTS playback (software AEC fallback, disables barge-in). Default: false */
@@ -50,6 +53,7 @@ export interface EstuaryConfig {
 }
 
 export type VoiceTransport = 'websocket' | 'livekit' | 'auto';
+export type VoiceMode = 'continuous' | 'push_to_talk';
 
 /** Per-session *device* capability declaration. Pass on `EstuaryConfig.capabilities`.
  *
@@ -544,6 +548,9 @@ export interface VoiceManager {
   start(): Promise<void>;
   stop(): Promise<void>;
   toggleMute(): void;
+  beginPushToTalk?(): Promise<void>;
+  endPushToTalk?(): Promise<void>;
+  readonly isPushToTalkActive?: boolean;
   /** Suppress audio sending (software AEC). No-op if not supported. */
   setSuppressed?(suppressed: boolean): void;
   /** Set callback for speaking state from participant attributes (LiveKit only). */

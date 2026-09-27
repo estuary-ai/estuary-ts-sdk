@@ -17,6 +17,7 @@ This SDK implements the Estuary SDK API Contract defined in `SDK_CONTRACT.md` at
 ```yaml
 transport_websocket: true
 transport_livekit_webrtc: true          # Via optional livekit-client peer dependency
+push_to_talk: true                     # Explicit press/release on both voice transports
 audio_recording: true                   # getUserMedia + Web Audio API
 audio_playback: true                    # Web Audio API AudioContext
 camera_capture: true                    # Via sendCameraImage() — app provides base64 image
@@ -39,6 +40,7 @@ ignore the additive field. Swift uses it for per-turn local avatar playback.
 | text_chat | Implemented | sendText(), botResponse event |
 | say_line | Implemented | `sayLine(text, textOnly?)` emits `say_line` with `text_only` flag (TTS by default) |
 | scripted_lines | Implemented (TS-only extension) | `playScript()`/`sayLines()` sequencer paces lines so back-to-back `say_line` calls don't interrupt each other; emits `scriptLineStarted`/`scriptComplete`. Layered on the shared `say_line` event — not present in the other SDKs. |
+| voice_push_to_talk | Implemented (browser/device smoke pending) | `voiceMode: 'push_to_talk'` + `beginPushToTalk()` / `endPushToTalk()`. `startVoice()` prepares capture without transmitting. Declares `turn_mode` on each press and on LiveKit token/join before STT setup. Commands wait for the gateway handler ACK and serialize per socket, including across manager teardown. WebSocket flushes the last capture block before release; LiveKit retains its room and publishes the initial microphone track muted. Mute/suppression are independent gates. A command timeout requires reconnect; resumed sessions always start with the button released. |
 | voice_websocket | Implemented | WebSocketVoiceManager |
 | voice_livekit | Implemented | LiveKitVoiceManager (optional peer dep). LiveKit activates only on `startVoice()` — nothing is touched at `connect()`. The `livekit_token` request at voice start doubles as the gateway's voice-intent signal: it launches the server's bot pre-join + STT pre-connect in the background (warm start), overlapping the mic-permission prompt and room connect. Do NOT switch to the embedded session_info token without also emitting `livekit_token` — that would silently downgrade every voice start to the cold join path (see SDK_CONTRACT.md voice_livekit → Resource allocation). |
 | interrupts | Implemented | interrupt() + interrupt event |

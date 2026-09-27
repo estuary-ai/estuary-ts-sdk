@@ -73,7 +73,7 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
       );
     }
 
-    this.config = config;
+    this.config = { ...config }; // Voice mode is fixed for this client's sessions.
     this.logger = new Logger(config.debug ?? false);
     this.socketManager = new SocketManager(config, this.logger);
     this.forwardSocketEvents();
@@ -296,7 +296,9 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
     const transport = this.config.voiceTransport ?? 'auto';
     const sampleRate = this.config.audioSampleRate ?? DEFAULT_SAMPLE_RATE;
 
-    const result = await createVoiceManager(transport, this.socketManager, sampleRate, this.logger);
+    const result = await createVoiceManager(
+      transport, this.socketManager, sampleRate, this.logger, this.config.voiceMode,
+    );
     if (!result) {
       throw new EstuaryError(ErrorCode.VOICE_NOT_SUPPORTED, 'No voice transport available');
     }
@@ -324,7 +326,18 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
       });
     }
 
-    await this.voiceManager.start();
+    const manager = this.voiceManager;
+    try {
+      await manager.start();
+    } catch (err) {
+      manager.dispose();
+      if (this.voiceManager === manager) this.voiceManager = null;
+      throw err;
+    }
+    if (this.voiceManager !== manager) {
+      manager.dispose();
+      throw new EstuaryError(ErrorCode.VOICE_NOT_ACTIVE, 'Voice session ended during setup');
+    }
 
     // Wire LiveKit speaking state (participant attributes) to events
     this.voiceManager.setSpeakingStateCallback?.((speaking: boolean) => {
@@ -354,13 +367,40 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
 
   /** Stop voice input */
   async stopVoice(): Promise<void> {
-    if (this.voiceManager?.isActive) {
-      await this.voiceManager.stop();
-      this.voiceManager.dispose();
+    const manager = this.voiceManager;
+    if (manager?.isActive) {
+      await manager.stop();
+      manager.dispose();
+      if (this.voiceManager !== manager) return;
       this.voiceManager = null;
       this._isLiveKitSpeaking = false;
       this.emit('voiceStopped');
     }
+  }
+
+  /** Press talk. Await readiness before prompting the user to speak. */
+  async beginPushToTalk(): Promise<void> {
+    this.ensureConnected();
+    if (this.config.voiceMode !== 'push_to_talk') {
+      throw new EstuaryError(ErrorCode.VOICE_MODE_MISMATCH, 'Set voiceMode to push_to_talk before connecting');
+    }
+    if (!this.voiceManager?.isActive || !this.voiceManager.beginPushToTalk) {
+      throw new EstuaryError(ErrorCode.VOICE_NOT_ACTIVE, 'Call startVoice() before pressing talk');
+    }
+    await this.voiceManager.beginPushToTalk();
+  }
+
+  /** Release talk and finalize this turn, keeping the voice session prepared. */
+  async endPushToTalk(): Promise<void> {
+    if (this.config.voiceMode !== 'push_to_talk') {
+      throw new EstuaryError(ErrorCode.VOICE_MODE_MISMATCH, 'Set voiceMode to push_to_talk before connecting');
+    }
+    await this.voiceManager?.endPushToTalk?.();
+  }
+
+  /** Whether the talk button is held, including while waiting for readiness. */
+  get isPushToTalkActive(): boolean {
+    return this.voiceManager?.isPushToTalkActive ?? false;
   }
 
   /**
