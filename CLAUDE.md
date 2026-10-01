@@ -31,6 +31,9 @@ default_playback_sample_rate: 24000    # TTS audio generated at 24kHz by default
 
 ## Parity Status
 
+Restricted client credentials: Pending (v1.31). Deferred by user decision; existing API-key/share-session integrations are unchanged.
+
+
 The optional LiveKit bot attribute `estuary.message_id` (2026-09-18) is not yet
 exposed by this SDK. Existing speaking-state behavior is unchanged; consumers may
 ignore the additive field. Swift uses it for per-turn local avatar playback.
