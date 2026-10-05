@@ -588,6 +588,7 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
     this.socketManager.on('reconnecting', (attempt) => this.emit('reconnecting', attempt));
     this.socketManager.on('connectionStateChanged', (state) => this.emit('connectionStateChanged', state));
     this.socketManager.on('botResponse', (response) => this.handleBotResponse(response));
+    this.socketManager.on('guardrailEvent', (event) => this.emit('guardrailEvent', event));
     this.socketManager.on('botVoice', (voice) => this.handleBotVoice(voice));
     this.socketManager.on('sttResponse', (response) => {
       this.maybeAutoInterrupt(response);

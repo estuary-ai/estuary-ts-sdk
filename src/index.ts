@@ -12,6 +12,7 @@ export type {
   SessionInfo,
   CharacterInfo,
   BotResponse,
+  GuardrailEvent,
   BotVoice,
   SttResponse,
   InterruptData,

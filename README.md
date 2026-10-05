@@ -402,6 +402,16 @@ export default function Chat() {
 
 If using `next/dynamic` with `ssr: false`, the importing page must also be a client component in Next.js 16+.
 
+## Guardrail notifications
+
+Guarded replies can emit a passive safety notification:
+
+```ts
+client.on('guardrailEvent', event => console.log(event.action, event.messageId));
+```
+
+The rejected content was withheld before delivery. Keep approved audio and text playing; do not interrupt the character in response to this notification. Incident history is available from `GET /api/v1/characters/{characterId}/moderation-events`.
+
 ## Requirements
 
 - Node.js 18+ or modern browser

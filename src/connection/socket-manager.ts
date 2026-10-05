@@ -8,6 +8,7 @@ import {
   ConnectionState,
   WireSessionInfo,
   WireBotResponse,
+  WireGuardrailEvent,
   WireBotVoice,
   WireSttResponse,
   WireInterruptData,
@@ -244,6 +245,13 @@ export class SocketManager extends TypedEventEmitter<EstuaryEventMap> {
 
     this.socket.on('bot_response', (data: WireBotResponse) => {
       this.emit('botResponse', toBotResponse(data));
+    });
+
+    this.socket.on('guardrail_event', (data: WireGuardrailEvent) => {
+      this.emit('guardrailEvent', {
+        eventId: data.event_id, messageId: data.message_id, characterId: data.character_id,
+        action: data.action, attempt: data.attempt, categories: data.categories,
+      });
     });
 
     this.socket.on('bot_voice', (data: WireBotVoice) => {

@@ -189,6 +189,24 @@ export interface SessionInfo {
   playerId: string;
 }
 
+export interface GuardrailEvent {
+  eventId: string;
+  messageId: string;
+  characterId: string;
+  action: 'regenerating' | 'fallback' | 'acknowledgment_blocked';
+  attempt: number;
+  categories: string[];
+}
+
+export interface WireGuardrailEvent {
+  event_id: string;
+  message_id: string;
+  character_id: string;
+  action: GuardrailEvent['action'];
+  attempt: number;
+  categories: string[];
+}
+
 export interface BotResponse {
   text: string;
   isFinal: boolean;
@@ -515,6 +533,7 @@ export type EstuaryEventMap = {
   reconnecting: (attempt: number) => void;
   connectionStateChanged: (state: ConnectionState) => void;
   botResponse: (response: BotResponse) => void;
+  guardrailEvent: (event: GuardrailEvent) => void;
   botVoice: (voice: BotVoice) => void;
   sttResponse: (response: SttResponse) => void;
   interrupt: (data: InterruptData) => void;

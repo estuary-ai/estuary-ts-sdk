@@ -33,6 +33,7 @@ default_playback_sample_rate: 24000    # TTS audio generated at 24kHz by default
 | Feature | Status | Notes |
 |---------|--------|-------|
 | text_chat | Implemented | sendText(), botResponse event |
+| guardrail_visibility | Implemented | OPTIONAL contract v1.35 `guardrail_event` → typed `guardrailEvent`. Passive metadata only; does not clear audio/text or emit an interrupt. History is available through the public character REST endpoint. |
 | say_line | Implemented | `sayLine(text, textOnly?)` emits `say_line` with `text_only` flag (TTS by default) |
 | scripted_lines | Implemented (TS-only extension) | `playScript()`/`sayLines()` sequencer paces lines so back-to-back `say_line` calls don't interrupt each other; emits `scriptLineStarted`/`scriptComplete`. Layered on the shared `say_line` event — not present in the other SDKs. |
 | voice_websocket | Implemented | WebSocketVoiceManager |
