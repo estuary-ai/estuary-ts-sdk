@@ -21,9 +21,6 @@ push_to_talk: true                     # Explicit press/release on both voice tr
 audio_recording: true                   # getUserMedia + Web Audio API
 audio_playback: true                    # Web Audio API AudioContext
 camera_capture: true                    # Via sendCameraImage() — app provides base64 image
-livekit_video: false                    # Not implemented (AR/VR use case)
-scene_graph: false                      # Not implemented (AR/VR use case)
-device_pose: false                      # Not implemented (AR/VR use case)
 min_audio_sample_rate: 16000
 max_audio_sample_rate: 48000
 default_playback_sample_rate: 24000    # TTS audio generated at 24kHz by default
@@ -50,10 +47,6 @@ ignore the additive field. Swift uses it for per-turn local avatar playback.
 | client_action | Implemented | Typed `client_action` server event (contract v1.10, SCRUM-202) → existing `characterAction` event, fire-on-arrival. **Opt-in is mandatory and automatic:** `socket-manager` always sends `capabilities.client_action: true` in the auth payload, because the server defaults that field to `false` and serves the retired XML `<action>` tag path to anything that doesn't declare it. It is injected after the `...config.capabilities` spread so an app cannot disable it — doing so would silently downgrade the session to the legacy path. Wire `arguments` values (`string \| number \| boolean`) are stringified in `toCharacterAction` so `params` stays `Record<string, string>` — no API change for consumers. The legacy inline `<action/>` text-tag parser (`StreamingActionParser` in `handleBotResponse`) is retained but dormant: on the opted-in path it only ever sees stray tags. `chunk_index`/`timestamp` envelope fields are not surfaced (public `CharacterAction` unchanged). |
 | audio_playback_tracking | Implemented | AudioPlayer drain events (WebSocket) + the bot's `estuary.state` participant attribute (LiveKit). Metadata-only `bot_voice` events are ignored on the LiveKit path — see "Audio Playback: Two Paths". |
 | vision_camera | Implemented | sendCameraImage() + cameraCaptureRequest event |
-| video_streaming_livekit | Not implemented | AR/VR only |
-| video_streaming_websocket | Not implemented | AR/VR only |
-| scene_graph | Not implemented | AR/VR only |
-| device_pose | Not implemented | AR/VR only |
 | preferences | Implemented | updatePreferences() |
 | memory_rest_api | Implemented | `client.memory.*` on the canonical `/api/v1/characters/{id}/players/{pid}/memories...` routes with camelCase query params (SCRUM-255, unreleased after 0.9.0). `search()` is `POST` with JSON `{query, limit?}` and returns `{results: [{memoryId, similarity, content}], query, total}`. Through 0.9.0 it sent `GET ?q=`, which the gateway always answered with 405, and `MemorySearchResponse` promised `{memory, score, similarityScore}`, a shape the gateway never produced; the type was corrected to match the wire (no working caller could depend on the old one). `MemoryListOptions.sortBy`/`sortOrder` are deprecated and no longer sent (no route ever honoured them). `deleteAll()` keeps its `{message, deletedCount}` return: v1 returns only `deletedCount`, so the SDK rebuilds the legacy message (`Deleted N records`) from the count. |
 | character_rest_api | Implemented | `getCharacter()` calls the canonical `GET /api/v1/characters/{id}` (SCRUM-255, unreleased after 0.9.0; through 0.9.0 it used legacy `GET /api/agents/{id}`). The v1 `CharacterResponse` is snake_case, so `character-client.ts` maps `model_url`, `model_preview_url`, `model_status` and `source_image_url` onto the unchanged camelCase public `CharacterInfo` (`id`, `name`, `tagline`, `avatar` share names). All URL fields arrive presigned, as on the legacy route. `source_image_url` needs a gateway at or after backend commit c101ecf; against an older gateway `sourceImageUrl` is `null`. `KNOWN_GAPS` in `tests/conformance.test.ts` is the place to record any future case the SDK deliberately does not follow (it is empty now). |
