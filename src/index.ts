@@ -1,6 +1,9 @@
 // Main client
 export { EstuaryClient } from './client';
 
+// SDK version (also sent as the X-Estuary-Client REST header)
+export { SDK_VERSION } from './version';
+
 // Errors
 export { EstuaryError, ErrorCode } from './errors';
 
@@ -8,6 +11,7 @@ export { EstuaryError, ErrorCode } from './errors';
 export type {
   EstuaryConfig,
   VoiceTransport,
+  VoiceMode,
   SessionCapabilities,
   SessionInfo,
   CharacterInfo,
@@ -40,6 +44,7 @@ export type {
   MemoryGraphNode,
   MemoryGraphEdge,
   MemoryGraphResponse,
+  MemorySearchResult,
   MemorySearchResponse,
   CoreFact,
   CoreFactsResponse,

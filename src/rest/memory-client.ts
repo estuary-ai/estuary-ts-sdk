@@ -17,11 +17,19 @@ export class MemoryClient {
 
   constructor(rest: RestClient, agentId: string, playerId: string) {
     this.rest = rest;
-    this.basePath = `/api/agents/${agentId}/players/${playerId}/memories`;
+    this.basePath = `/api/v1/characters/${agentId}/players/${playerId}/memories`;
   }
 
   async getMemories(options?: MemoryListOptions): Promise<MemoryListResponse> {
-    return this.rest.get<MemoryListResponse>(this.basePath, options as Record<string, string | number | boolean | undefined>);
+    // The v1 list route has no sort parameters (the legacy route accepted and ignored them).
+    const params: Record<string, string | number | boolean | undefined> = {};
+    if (options) {
+      params.memoryType = options.memoryType;
+      params.status = options.status;
+      params.limit = options.limit;
+      params.offset = options.offset;
+    }
+    return this.rest.get<MemoryListResponse>(this.basePath, params);
   }
 
   async getTimeline(options?: MemoryTimelineOptions): Promise<MemoryTimelineResponse> {
@@ -39,18 +47,26 @@ export class MemoryClient {
   async getGraph(options?: MemoryGraphOptions): Promise<MemoryGraphResponse> {
     const params: Record<string, string | number | boolean | undefined> = {};
     if (options) {
-      if (options.includeEntities !== undefined) params.include_entities = options.includeEntities;
-      if (options.includeCharacterMemories !== undefined) params.include_character_memories = options.includeCharacterMemories;
+      if (options.includeEntities !== undefined) params.includeEntities = options.includeEntities;
+      if (options.includeCharacterMemories !== undefined) params.includeCharacterMemories = options.includeCharacterMemories;
     }
     return this.rest.get<MemoryGraphResponse>(`${this.basePath}/graph`, params);
   }
 
   async search(query: string, limit?: number): Promise<MemorySearchResponse> {
-    return this.rest.get<MemorySearchResponse>(`${this.basePath}/search`, { q: query, limit });
+    // POST with a JSON body: the gateway has never accepted GET ?q= here (405).
+    const body: { query: string; limit?: number } = { query };
+    if (limit !== undefined) body.limit = limit;
+    return this.rest.post<MemorySearchResponse>(`${this.basePath}/search`, body);
   }
 
   async deleteAll(confirm: boolean): Promise<{ message: string; deletedCount: number }> {
-    return this.rest.delete<{ message: string; deletedCount: number }>(this.basePath, { confirm });
+    // v1 returns only { deletedCount }; the legacy message was derived from the same count.
+    const raw = await this.rest.delete<{ deletedCount: number; message?: string }>(this.basePath, { confirm });
+    return {
+      message: raw.message ?? `Deleted ${raw.deletedCount} records`,
+      deletedCount: raw.deletedCount,
+    };
   }
 
   dispose(): void {

@@ -1,7 +1,8 @@
-import type { VoiceManager, LiveKitTokenResponse } from '../types';
+import type { VoiceManager, LiveKitTokenResponse, VoiceMode } from '../types';
 import type { SocketManager } from '../connection/socket-manager';
 import type { Logger } from '../utils/logger';
 import { EstuaryError, ErrorCode } from '../errors';
+import { PushToTalk, PTT_PAYLOAD } from './push-to-talk';
 
 export class LiveKitVoiceManager implements VoiceManager {
   private socketManager: SocketManager;
@@ -10,6 +11,10 @@ export class LiveKitVoiceManager implements VoiceManager {
   private _isMuted = false;
   private _isSuppressed = false;
   private _isActive = false;
+  private ptt: PushToTalk | null = null;
+  private pttTrack: import('livekit-client').LocalAudioTrack | null = null;
+  private pttTransmitting = false;
+  private pttTrackUpdate: Promise<void> = Promise.resolve();
   private speakingStateCallback: ((speaking: boolean) => void) | null = null;
   private audioLevelCallback: ((level: number) => void) | null = null;
 
@@ -19,7 +24,7 @@ export class LiveKitVoiceManager implements VoiceManager {
   private audioLevelPollTimer: ReturnType<typeof setInterval> | null = null;
   private _isBotSpeaking = false;
 
-  constructor(socketManager: SocketManager, logger: Logger) {
+  constructor(socketManager: SocketManager, logger: Logger, private voiceMode: VoiceMode = 'continuous') {
     this.socketManager = socketManager;
     this.logger = logger;
   }
@@ -31,6 +36,17 @@ export class LiveKitVoiceManager implements VoiceManager {
   get isActive(): boolean {
     return this._isActive;
   }
+
+  get isPushToTalkActive(): boolean { return this.ptt?.isHeld ?? false; }
+
+  async beginPushToTalk(): Promise<void> {
+    if (!this._isActive || !this.ptt) {
+      throw new EstuaryError(ErrorCode.VOICE_NOT_ACTIVE, 'PTT voice is not active');
+    }
+    await this.ptt.begin();
+  }
+
+  async endPushToTalk(): Promise<void> { await this.ptt?.end(); }
 
   setSpeakingStateCallback(cb: (speaking: boolean) => void): void {
     this.speakingStateCallback = cb;
@@ -48,11 +64,13 @@ export class LiveKitVoiceManager implements VoiceManager {
     let Room: any;
     let RoomEvent: any;
     let Track: any;
+    let createLocalAudioTrack: typeof import('livekit-client').createLocalAudioTrack;
     try {
       const lk = await import('livekit-client');
       Room = lk.Room;
       RoomEvent = lk.RoomEvent;
       Track = lk.Track;
+      createLocalAudioTrack = lk.createLocalAudioTrack;
     } catch {
       throw new EstuaryError(
         ErrorCode.LIVEKIT_UNAVAILABLE,
@@ -110,6 +128,7 @@ export class LiveKitVoiceManager implements VoiceManager {
     this.room.on(RoomEvent.Disconnected, () => {
       this.logger.debug('LiveKit room disconnected');
       this._isActive = false;
+      this.disposePtt();
       this._isBotSpeaking = false;
       this.stopAudioLevelPolling();
       this.botParticipant = null;
@@ -151,9 +170,22 @@ export class LiveKitVoiceManager implements VoiceManager {
 
     // Enable microphone
     try {
-      await this.room.localParticipant.setMicrophoneEnabled(true);
+      if (this.voiceMode === 'push_to_talk') {
+        // Mute BEFORE publishing: setMicrophoneEnabled(true) would briefly
+        // transmit while startVoice() is only preparing the call.
+        this.pttTrack = await createLocalAudioTrack({
+          echoCancellation: true, noiseSuppression: true, autoGainControl: true,
+        });
+        await this.pttTrack.mute();
+        await this.room.localParticipant.publishTrack(this.pttTrack, {
+          source: Track.Source.Microphone, stopMicTrackOnMute: false,
+        });
+      } else {
+        await this.room.localParticipant.setMicrophoneEnabled(true);
+      }
       this.logger.debug('Microphone enabled');
     } catch (err) {
+      this.disposePtt();
       this.room.disconnect();
       this.room = null;
       const reason = err instanceof Error ? `: ${err.message}` : '';
@@ -178,15 +210,27 @@ export class LiveKitVoiceManager implements VoiceManager {
         resolve();
       };
       this.socketManager.once('livekitConnected', onReady);
-      this.socketManager.emitEvent('livekit_join', { room: tokenData.room });
+      this.socketManager.emitEvent('livekit_join', {
+        room: tokenData.room,
+        ...(this.voiceMode === 'push_to_talk' ? PTT_PAYLOAD : {}),
+      });
     });
 
     this._isActive = true;
+    if (this.voiceMode === 'push_to_talk') {
+      this.ptt = new PushToTalk(this.socketManager, (enabled) => {
+        this.pttTransmitting = enabled;
+        return this.updatePttTrack();
+      });
+    }
     this.logger.debug('LiveKit voice started');
   }
 
   async stop(): Promise<void> {
     if (!this._isActive) return;
+
+    this._isActive = false;
+    const closed = this.disposePtt();
 
     try {
       this.socketManager.emitEvent('livekit_leave');
@@ -217,6 +261,7 @@ export class LiveKitVoiceManager implements VoiceManager {
     this._isMuted = false;
     this._isSuppressed = false;
     this.logger.debug('LiveKit voice stopped');
+    await closed;
   }
 
   toggleMute(): void {
@@ -233,6 +278,8 @@ export class LiveKitVoiceManager implements VoiceManager {
   }
 
   dispose(): void {
+    this._isActive = false;
+    this.disposePtt();
     this.speakingStateCallback = null;
     this.audioLevelCallback = null;
     this._isBotSpeaking = false;
@@ -259,6 +306,12 @@ export class LiveKitVoiceManager implements VoiceManager {
    *  showing muted, live audio still reached server-side STT. */
   private updateTrackEnabled(): void {
     if (!this.room) return;
+    if (this.voiceMode === 'push_to_talk') {
+      void this.updatePttTrack().catch((err: unknown) => {
+        this.logger.warn('PTT microphone update failed:', err);
+      });
+      return;
+    }
     const enabled = !this._isMuted && !this._isSuppressed;
 
     let gated = 0;
@@ -276,6 +329,40 @@ export class LiveKitVoiceManager implements VoiceManager {
     this.room.localParticipant.setMicrophoneEnabled(enabled).catch((err: unknown) => {
       this.logger.warn('setMicrophoneEnabled failed; relying on local track gate:', err);
     });
+  }
+
+  private updatePttTrack(): Promise<void> {
+    const track = this.pttTrack;
+    const room = this.room;
+    if (!track || !room) return Promise.resolve();
+    const enabled = () => this._isActive && this.pttTransmitting && !this._isMuted && !this._isSuppressed;
+    // Disable locally right away on release, while any older unmute is pending.
+    track.mediaStreamTrack.enabled = enabled();
+    this.pttTrackUpdate = this.pttTrackUpdate.catch(() => {}).then(async () => {
+      if (track !== this.pttTrack || room !== this.room || !this._isActive) return;
+      try {
+        await room.localParticipant.setMicrophoneEnabled(enabled());
+      } finally {
+        if (track !== this.pttTrack || room !== this.room || !this._isActive) {
+          track.stop();
+        } else {
+          track.mediaStreamTrack.enabled = enabled();
+        }
+      }
+    });
+    return this.pttTrackUpdate;
+  }
+
+  private disposePtt(): Promise<void> | undefined {
+    const closed = this.ptt?.dispose();
+    this.ptt = null;
+    this.pttTransmitting = false;
+    if (this.pttTrack) {
+      this.pttTrack.mediaStreamTrack.enabled = false;
+      this.pttTrack.stop();
+      this.pttTrack = null;
+    }
+    return closed;
   }
 
   // ─── Audio Level Polling (participant.audioLevel) ───────────────
@@ -323,7 +410,7 @@ export class LiveKitVoiceManager implements VoiceManager {
         resolve(data);
       });
 
-      this.socketManager.emitEvent('livekit_token');
+      this.socketManager.emitEvent('livekit_token', this.voiceMode === 'push_to_talk' ? PTT_PAYLOAD : undefined);
     });
   }
 }

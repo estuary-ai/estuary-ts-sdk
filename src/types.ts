@@ -23,6 +23,9 @@ export interface EstuaryConfig {
   debug?: boolean;
   /** Voice transport: 'websocket' | 'livekit' | 'auto' (default: 'auto') */
   voiceTransport?: VoiceTransport;
+  /** 'continuous' (default) or explicit press/release with beginPushToTalk()/endPushToTalk().
+   *  Choose before connecting; the server keeps PTT enabled until reconnect. */
+  voiceMode?: VoiceMode;
   /** Enable real-time memory extraction after each response (default: false) */
   realtimeMemory?: boolean;
   /** Suppress mic during TTS playback (software AEC fallback, disables barge-in). Default: false */
@@ -50,6 +53,7 @@ export interface EstuaryConfig {
 }
 
 export type VoiceTransport = 'websocket' | 'livekit' | 'auto';
+export type VoiceMode = 'continuous' | 'push_to_talk';
 
 /** Per-session *device* capability declaration. Pass on `EstuaryConfig.capabilities`.
  *
@@ -563,6 +567,9 @@ export interface VoiceManager {
   start(): Promise<void>;
   stop(): Promise<void>;
   toggleMute(): void;
+  beginPushToTalk?(): Promise<void>;
+  endPushToTalk?(): Promise<void>;
+  readonly isPushToTalkActive?: boolean;
   /** Suppress audio sending (software AEC). No-op if not supported. */
   setSuppressed?(suppressed: boolean): void;
   /** Set callback for speaking state from participant attributes (LiveKit only). */
@@ -581,7 +588,9 @@ export interface MemoryListOptions {
   status?: string;
   limit?: number;
   offset?: number;
+  /** @deprecated Never honoured by the gateway; no longer sent. */
   sortBy?: 'created_at' | 'confidence' | 'last_accessed_at';
+  /** @deprecated Never honoured by the gateway; no longer sent. */
   sortOrder?: 'asc' | 'desc';
 }
 
@@ -671,8 +680,16 @@ export interface MemoryGraphResponse {
   stale?: boolean;
 }
 
+/** One semantic search hit, exactly as the gateway returns it. */
+export interface MemorySearchResult {
+  memoryId: string;
+  /** Similarity to the query (higher is closer). */
+  similarity: number;
+  content: string;
+}
+
 export interface MemorySearchResponse {
-  results: { memory: MemoryData; score: number; similarityScore: number }[];
+  results: MemorySearchResult[];
   query: string;
   total: number;
 }

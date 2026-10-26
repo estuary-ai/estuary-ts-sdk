@@ -1,4 +1,5 @@
 import { EstuaryError, ErrorCode } from '../errors';
+import { CLIENT_HEADER_NAME, CLIENT_HEADER_VALUE } from '../version';
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 
@@ -52,6 +53,7 @@ export class RestClient {
   private async request<T>(url: string, init: RequestInit): Promise<T> {
     const headers = new Headers(init.headers);
     headers.set('X-API-Key', this.apiKey);
+    headers.set(CLIENT_HEADER_NAME, CLIENT_HEADER_VALUE);
 
     const response = await fetch(url, {
       ...init,

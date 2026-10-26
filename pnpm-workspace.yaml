@@ -1,0 +1,10 @@
+# Not a workspace. pnpm 10+ keeps per-project SETTINGS in this file, so a
+# single-package repo needs one too. Without it pnpm climbs to the parent
+# estuary-product/pnpm-workspace.yaml and every `pnpm <script>` here runs a ROOT
+# install instead (rewriting the root store the sibling repos no longer use).
+
+# Dependencies allowed to run install scripts. Without real true/false values
+# here, pnpm's pre-run dependency check aborts every `pnpm test` / `pnpm build`
+# with ERR_PNPM_IGNORED_BUILDS before the script ever executes.
+allowBuilds:
+  esbuild: true

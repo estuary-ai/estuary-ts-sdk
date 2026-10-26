@@ -17,12 +17,10 @@ This SDK implements the Estuary SDK API Contract defined in `SDK_CONTRACT.md` at
 ```yaml
 transport_websocket: true
 transport_livekit_webrtc: true          # Via optional livekit-client peer dependency
+push_to_talk: true                     # Explicit press/release on both voice transports
 audio_recording: true                   # getUserMedia + Web Audio API
 audio_playback: true                    # Web Audio API AudioContext
 camera_capture: true                    # Via sendCameraImage() — app provides base64 image
-livekit_video: false                    # Not implemented (AR/VR use case)
-scene_graph: false                      # Not implemented (AR/VR use case)
-device_pose: false                      # Not implemented (AR/VR use case)
 min_audio_sample_rate: 16000
 max_audio_sample_rate: 48000
 default_playback_sample_rate: 24000    # TTS audio generated at 24kHz by default
@@ -30,24 +28,32 @@ default_playback_sample_rate: 24000    # TTS audio generated at 24kHz by default
 
 ## Parity Status
 
+Restricted client credentials: Pending (v1.31). Deferred by user decision; existing API-key/share-session integrations are unchanged.
+
+
+The optional LiveKit bot attribute `estuary.message_id` (2026-09-18) is not yet
+exposed by this SDK. Existing speaking-state behavior is unchanged; consumers may
+ignore the additive field. Swift uses it for per-turn local avatar playback.
+
 | Feature | Status | Notes |
 |---------|--------|-------|
 | text_chat | Implemented | sendText(), botResponse event |
 | guardrail_visibility | Implemented | OPTIONAL contract v1.35 `guardrail_event` → typed `guardrailEvent`. Passive metadata only; does not clear audio/text or emit an interrupt. History is available through the public character REST endpoint. |
 | say_line | Implemented | `sayLine(text, textOnly?)` emits `say_line` with `text_only` flag (TTS by default) |
 | scripted_lines | Implemented (TS-only extension) | `playScript()`/`sayLines()` sequencer paces lines so back-to-back `say_line` calls don't interrupt each other; emits `scriptLineStarted`/`scriptComplete`. Layered on the shared `say_line` event — not present in the other SDKs. |
+| voice_push_to_talk | Implemented (browser/device smoke pending) | `voiceMode: 'push_to_talk'` + `beginPushToTalk()` / `endPushToTalk()`. `startVoice()` prepares capture without transmitting. Declares `turn_mode` on each press and on LiveKit token/join before STT setup. Commands wait for the gateway handler ACK and serialize per socket, including across manager teardown. WebSocket flushes the last capture block before release; LiveKit retains its room and publishes the initial microphone track muted. Mute/suppression are independent gates. A command timeout requires reconnect; resumed sessions always start with the button released. |
 | voice_websocket | Implemented | WebSocketVoiceManager |
 | voice_livekit | Implemented | LiveKitVoiceManager (optional peer dep). LiveKit activates only on `startVoice()` — nothing is touched at `connect()`. The `livekit_token` request at voice start doubles as the gateway's voice-intent signal: it launches the server's bot pre-join + STT pre-connect in the background (warm start), overlapping the mic-permission prompt and room connect. Do NOT switch to the embedded session_info token without also emitting `livekit_token` — that would silently downgrade every voice start to the cold join path (see SDK_CONTRACT.md voice_livekit → Resource allocation). |
 | interrupts | Implemented | interrupt() + interrupt event |
 | client_action | Implemented | Typed `client_action` server event (contract v1.10, SCRUM-202) → existing `characterAction` event, fire-on-arrival. **Opt-in is mandatory and automatic:** `socket-manager` always sends `capabilities.client_action: true` in the auth payload, because the server defaults that field to `false` and serves the retired XML `<action>` tag path to anything that doesn't declare it. It is injected after the `...config.capabilities` spread so an app cannot disable it — doing so would silently downgrade the session to the legacy path. Wire `arguments` values (`string \| number \| boolean`) are stringified in `toCharacterAction` so `params` stays `Record<string, string>` — no API change for consumers. The legacy inline `<action/>` text-tag parser (`StreamingActionParser` in `handleBotResponse`) is retained but dormant: on the opted-in path it only ever sees stray tags. `chunk_index`/`timestamp` envelope fields are not surfaced (public `CharacterAction` unchanged). |
 | audio_playback_tracking | Implemented | AudioPlayer drain events (WebSocket) + the bot's `estuary.state` participant attribute (LiveKit). Metadata-only `bot_voice` events are ignored on the LiveKit path — see "Audio Playback: Two Paths". |
 | vision_camera | Implemented | sendCameraImage() + cameraCaptureRequest event |
-| video_streaming_livekit | Not implemented | AR/VR only |
-| video_streaming_websocket | Not implemented | AR/VR only |
-| scene_graph | Not implemented | AR/VR only |
-| device_pose | Not implemented | AR/VR only |
 | preferences | Implemented | updatePreferences() |
-| memory_rest_api | Implemented | client.memory.* methods |
+| memory_rest_api | Implemented | `client.memory.*` on the canonical `/api/v1/characters/{id}/players/{pid}/memories...` routes with camelCase query params (SCRUM-255, unreleased after 0.9.0). `search()` is `POST` with JSON `{query, limit?}` and returns `{results: [{memoryId, similarity, content}], query, total}`. Through 0.9.0 it sent `GET ?q=`, which the gateway always answered with 405, and `MemorySearchResponse` promised `{memory, score, similarityScore}`, a shape the gateway never produced; the type was corrected to match the wire (no working caller could depend on the old one). `MemoryListOptions.sortBy`/`sortOrder` are deprecated and no longer sent (no route ever honoured them). `deleteAll()` keeps its `{message, deletedCount}` return: v1 returns only `deletedCount`, so the SDK rebuilds the legacy message (`Deleted N records`) from the count. |
+| character_rest_api | Implemented | `getCharacter()` calls the canonical `GET /api/v1/characters/{id}` (SCRUM-255, unreleased after 0.9.0; through 0.9.0 it used legacy `GET /api/agents/{id}`). The v1 `CharacterResponse` is snake_case, so `character-client.ts` maps `model_url`, `model_preview_url`, `model_status` and `source_image_url` onto the unchanged camelCase public `CharacterInfo` (`id`, `name`, `tagline`, `avatar` share names). All URL fields arrive presigned, as on the legacy route. `source_image_url` needs a gateway at or after backend commit c101ecf; against an older gateway `sourceImageUrl` is `null`. `KNOWN_GAPS` in `tests/conformance.test.ts` is the place to record any future case the SDK deliberately does not follow (it is empty now). |
+| rest_client_header | Implemented | Every REST request sends `X-Estuary-Client: estuary-ts-sdk/<version>`: set centrally in `RestClient.request()` and on the static `openShare()` fetch (which sends no API key). The version lives in `src/version.ts` (`SDK_VERSION`, exported from the package); `tests/version.test.ts` fails if it drifts from `package.json`, so bump both together. REST only, never on the Socket.IO connection. |
+| rest_conformance | Implemented | `tests/conformance.test.ts` runs every `sdk.ts` case of the monorepo's `sdk-conformance/rest.json` through the real `RestClient` with a stubbed global `fetch` (method, path, query, JSON body, `X-Estuary-Client`, `X-API-Key`). Skips when the fixture is absent (SDK cloned alone). Add a binding in its `invoke()` for any new REST method. |
+| api_key_scopes | Implemented (no code) | A key lacking a scope gets `403 {"detail": {"error": "insufficient_scope", "requiredScope"}}`, surfaced through the normal `EstuaryError(REST_ERROR)` path with the body in `details`. Documented in README "Error Handling". |
 | memory_push | Implemented | memoryUpdated event for real-time extraction notifications |
 | suppress_mic_during_playback | Implemented | Works across both WebSocket and LiveKit transports |
 | capabilities_declaration | Implemented | `EstuaryConfig.capabilities` → `authenticate` payload (SDK v0.4.0+). Server defaults all fields true when omitted. |
@@ -70,8 +76,10 @@ src/
 │   ├── websocket-voice.ts    # WebSocket stream_audio implementation
 │   └── livekit-voice.ts      # LiveKit WebRTC implementation
 ├── rest/
-│   ├── rest-client.ts        # Base fetch wrapper with API key auth
-│   └── memory-client.ts      # Memory graph REST API client
+│   ├── rest-client.ts        # Base fetch wrapper: API key auth + X-Estuary-Client header
+│   ├── memory-client.ts      # Memory graph REST API client (/api/v1/characters/...)
+│   └── character-client.ts   # getCharacter() (/api/v1/characters/{id}, snake_case mapped to CharacterInfo)
+├── version.ts                # SDK_VERSION, single source for the X-Estuary-Client header
 ├── audio/
 │   ├── audio-player.ts       # Bot voice PCM playback (Web Audio) — WebSocket path only
 │   └── audio-recorder.ts     # Mic capture + PCM encoding

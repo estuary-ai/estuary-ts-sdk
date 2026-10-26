@@ -1,8 +1,9 @@
-import type { VoiceManager } from '../types';
+import type { VoiceManager, VoiceMode } from '../types';
 import type { SocketManager } from '../connection/socket-manager';
 import type { Logger } from '../utils/logger';
 import { EstuaryError, ErrorCode } from '../errors';
 import { resample, float32ToInt16, uint8ArrayToBase64 } from '../audio/audio-utils';
+import { PushToTalk } from './push-to-talk';
 
 export class WebSocketVoiceManager implements VoiceManager {
   private socketManager: SocketManager;
@@ -16,8 +17,12 @@ export class WebSocketVoiceManager implements VoiceManager {
   private _isMuted = false;
   private _isSuppressed = false;
   private _isActive = false;
+  private ptt: PushToTalk | null = null;
+  private pttTransmitting = false;
+  private finishPttFrame?: () => void;
+  private pttDrain: Promise<void> | null = null;
 
-  constructor(socketManager: SocketManager, sampleRate: number, logger: Logger) {
+  constructor(socketManager: SocketManager, sampleRate: number, logger: Logger, private voiceMode: VoiceMode = 'continuous') {
     this.socketManager = socketManager;
     this.sampleRate = sampleRate;
     this.logger = logger;
@@ -30,6 +35,17 @@ export class WebSocketVoiceManager implements VoiceManager {
   get isActive(): boolean {
     return this._isActive;
   }
+
+  get isPushToTalkActive(): boolean { return this.ptt?.isHeld ?? false; }
+
+  async beginPushToTalk(): Promise<void> {
+    if (!this._isActive || !this.ptt) {
+      throw new EstuaryError(ErrorCode.VOICE_NOT_ACTIVE, 'PTT voice is not active');
+    }
+    await this.ptt.begin();
+  }
+
+  async endPushToTalk(): Promise<void> { await this.ptt?.end(); }
 
   async start(): Promise<void> {
     if (this._isActive) {
@@ -64,13 +80,17 @@ export class WebSocketVoiceManager implements VoiceManager {
     this.audioContext = new AudioCtx({ sampleRate: this.sampleRate });
 
     this.sourceNode = this.audioContext.createMediaStreamSource(stream);
-    this.scriptProcessor = this.audioContext.createScriptProcessor(4096, 1, 1);
+    this.scriptProcessor = this.audioContext.createScriptProcessor(this.voiceMode === 'push_to_talk' ? 1024 : 4096, 1, 1);
 
     const nativeRate = this.audioContext.sampleRate;
     const targetRate = this.sampleRate;
 
     this.scriptProcessor.onaudioprocess = (event: AudioProcessingEvent) => {
-      if (this._isMuted || this._isSuppressed) return;
+      if (!this._isActive || this._isMuted || this._isSuppressed ||
+          (this.voiceMode === 'push_to_talk' && !this.pttTransmitting)) {
+        this.finishPttFrame?.();
+        return;
+      }
 
       const inputData = event.inputBuffer.getChannelData(0);
       let pcmFloat: Float32Array;
@@ -89,6 +109,8 @@ export class WebSocketVoiceManager implements VoiceManager {
       } catch {
         // Not connected — ignore, will be handled by disconnect logic
       }
+      // Release includes the last partially captured block before stop_voice.
+      this.finishPttFrame?.();
     };
 
     this.sourceNode.connect(this.scriptProcessor);
@@ -98,17 +120,27 @@ export class WebSocketVoiceManager implements VoiceManager {
     this.zeroGainNode.connect(this.audioContext.destination);
 
     this._isActive = true;
-    this.socketManager.emitEvent('start_voice');
+    if (this.voiceMode === 'push_to_talk') {
+      this.ptt = new PushToTalk(this.socketManager, (enabled) => this.setPttTransmitting(enabled));
+    } else {
+      this.socketManager.emitEvent('start_voice');
+    }
     this.logger.debug('WebSocket voice started');
   }
 
   async stop(): Promise<void> {
     if (!this._isActive) return;
 
-    try {
-      this.socketManager.emitEvent('stop_voice');
-    } catch {
-      // May not be connected
+    let closed: Promise<void> | undefined;
+    if (this.ptt) {
+      closed = this.ptt.dispose();
+      this.ptt = null;
+    } else {
+      try {
+        this.socketManager.emitEvent('stop_voice');
+      } catch {
+        // May not be connected
+      }
     }
 
     this.cleanup();
@@ -116,6 +148,7 @@ export class WebSocketVoiceManager implements VoiceManager {
     this._isMuted = false;
     this._isSuppressed = false;
     this.logger.debug('WebSocket voice stopped');
+    await closed;
   }
 
   toggleMute(): void {
@@ -135,6 +168,8 @@ export class WebSocketVoiceManager implements VoiceManager {
   }
 
   dispose(): void {
+    this.ptt?.dispose();
+    this.ptt = null;
     this.cleanup();
     this._isActive = false;
     this._isMuted = false;
@@ -142,6 +177,8 @@ export class WebSocketVoiceManager implements VoiceManager {
   }
 
   private cleanup(): void {
+    this.finishPttFrame?.();
+    this.pttTransmitting = false;
     if (this.scriptProcessor) {
       this.scriptProcessor.onaudioprocess = null;
       this.scriptProcessor.disconnect();
@@ -165,5 +202,26 @@ export class WebSocketVoiceManager implements VoiceManager {
       this.audioContext.close().catch(() => {});
       this.audioContext = null;
     }
+  }
+
+  private setPttTransmitting(enabled: boolean): void | Promise<void> {
+    if (enabled) {
+      this.pttTransmitting = true;
+      return;
+    }
+    if (this.pttDrain) return this.pttDrain;
+    if (!this.pttTransmitting) return;
+    this.pttDrain = new Promise<void>((resolve) => {
+      // A suspended AudioContext may never deliver the trailing callback.
+      const timer = setTimeout(() => this.finishPttFrame?.(), 100);
+      this.finishPttFrame = () => {
+        clearTimeout(timer);
+        this.pttTransmitting = false;
+        this.finishPttFrame = undefined;
+        this.pttDrain = null;
+        resolve();
+      };
+    });
+    return this.pttDrain;
   }
 }
