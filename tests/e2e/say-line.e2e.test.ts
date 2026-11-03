@@ -3,9 +3,11 @@ import { EstuaryClient } from '../../src';
 import type { BotVoice } from '../../src';
 
 // Gated: only runs when ESTUARY_E2E is set (via `npm run test:e2e`). Normal `npm test` skips it.
-const RUN = !!process.env.ESTUARY_E2E;
+// ESTUARY_E2E_API_KEY must be a key YOU minted against the target backend; the
+// shared demo key that used to be the default here was revoked (security audit).
+const RUN = !!process.env.ESTUARY_E2E && !!process.env.ESTUARY_E2E_API_KEY;
 const SERVER = process.env.ESTUARY_E2E_URL ?? 'http://localhost:4001';
-const API_KEY = process.env.ESTUARY_E2E_API_KEY ?? 'est_demo-api-key-estuary-2026';
+const API_KEY = process.env.ESTUARY_E2E_API_KEY ?? '';
 const PLAYER = process.env.ESTUARY_E2E_PLAYER_ID ?? `e2e-sayline-${Date.now()}`;
 
 function deadline(ms: number, msg: string): Promise<never> {
