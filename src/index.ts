@@ -7,6 +7,9 @@ export { SDK_VERSION } from './version';
 // Errors
 export { EstuaryError, ErrorCode } from './errors';
 
+// Restricted client credentials (SDK_CONTRACT v1.31)
+export type { ClientCredential, TokenProvider } from './credentials';
+
 // Types — public interfaces and enums
 export type {
   EstuaryConfig,

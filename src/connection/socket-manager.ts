@@ -1,4 +1,5 @@
 import { io, Socket } from 'socket.io-client';
+import { REFRESH_MARGIN_SECONDS, type ClientCredential, type CredentialProvider } from '../credentials';
 import { TypedEventEmitter } from '../utils/event-emitter';
 import { Logger } from '../utils/logger';
 import { EstuaryError, ErrorCode } from '../errors';
@@ -52,11 +53,19 @@ export class SocketManager extends TypedEventEmitter<EstuaryEventMap> {
   // second socket and leak a phantom billed session server-side.
   private connectPromise: Promise<SessionInfo> | null = null;
   private abortPendingConnect: ((err: EstuaryError) => void) | null = null;
+  // Restricted client credentials (SDK_CONTRACT v1.31): set when the app
+  // passed a tokenProvider. The grant is renewed on the live socket before it
+  // expires, so a conversation outlasts any one grant.
+  private credentials: CredentialProvider | null;
+  private renewalTimer: ReturnType<typeof setTimeout> | null = null;
+  // Bumped by disconnect(): a connect still waiting on the token provider sees it and stops.
+  private connectGeneration = 0;
 
-  constructor(config: EstuaryConfig, logger: Logger) {
+  constructor(config: EstuaryConfig, logger: Logger, credentials: CredentialProvider | null = null) {
     super();
     this.config = config;
     this.logger = logger;
+    this.credentials = credentials;
   }
 
   get state(): ConnectionState {
@@ -85,9 +94,47 @@ export class SocketManager extends TypedEventEmitter<EstuaryEventMap> {
     // this, the pending timer fires later and opens a second socket.
     this.clearReconnectTimer();
 
-    const promise = new Promise<SessionInfo>((resolve, reject) => {
+    this.serverEndedSession = false; // explicit connect overrides a prior idle timeout
+
+    let promise: Promise<SessionInfo>;
+    if (this.credentials) {
+      // The grant comes first. A disconnect() while the app's backend answers
+      // must win, so a stale fetch can't open a socket afterwards.
+      const generation = ++this.connectGeneration;
       this.setConnectionState(ConnectionState.Connecting);
-      this.serverEndedSession = false; // explicit connect overrides a prior idle timeout
+      promise = this.credentials.get().then(
+        (credential) => {
+          if (generation !== this.connectGeneration) {
+            throw new EstuaryError(ErrorCode.CONNECTION_FAILED, 'Connection attempt aborted by disconnect()');
+          }
+          return this.open(credential);
+        },
+        (error: unknown) => {
+          if (generation === this.connectGeneration) this.setConnectionState(ConnectionState.Error);
+          throw error instanceof EstuaryError
+            ? error
+            : new EstuaryError(ErrorCode.AUTH_FAILED, 'The token provider failed', error);
+        },
+      );
+    } else {
+      promise = this.open(null);
+    }
+
+    this.connectPromise = promise;
+    const clear = () => {
+      if (this.connectPromise === promise) {
+        this.connectPromise = null;
+        this.abortPendingConnect = null;
+      }
+    };
+    promise.then(clear, clear);
+    return promise;
+  }
+
+  /** Opens the socket and authenticates, with the client grant when there is one. */
+  private open(credential: ClientCredential | null): Promise<SessionInfo> {
+    return new Promise<SessionInfo>((resolve, reject) => {
+      this.setConnectionState(ConnectionState.Connecting);
 
       // Drop any previous (dead or zombie) socket before opening a new one.
       // Kept alive, its still-bound listeners would replay disconnect/error
@@ -125,7 +172,11 @@ export class SocketManager extends TypedEventEmitter<EstuaryEventMap> {
           realtime_memory: this.config.realtimeMemory ?? false,
         };
 
-        if (this.config.sessionToken) {
+        if (credential) {
+          // The grant is bound to its own canonical player; the gateway refuses another.
+          authPayload.client_token = credential.token;
+          authPayload.player_id = credential.playerId;
+        } else if (this.config.sessionToken) {
           authPayload.api_key = this.config.sessionToken;  // Backend resolves sst_ prefix
         } else if (this.config.apiKey) {
           authPayload.api_key = this.config.apiKey;
@@ -154,6 +205,7 @@ export class SocketManager extends TypedEventEmitter<EstuaryEventMap> {
         this.setConnectionState(ConnectionState.Connected);
         this.reconnectAttempt = 0;
         this.logger.info('Connected, session:', this.sessionInfo.sessionId);
+        if (credential) this.scheduleRenewal(credential.expiresAt);
         this.emit('connected', this.sessionInfo);
         if (!settled) {
           settled = true;
@@ -164,6 +216,9 @@ export class SocketManager extends TypedEventEmitter<EstuaryEventMap> {
       const onAuthError = (data: { error: string }) => {
         this.logger.error('Auth error:', data.error);
         this.setConnectionState(ConnectionState.Error);
+        // A refused grant mid-session (revoked, or a guard refusal the gateway
+        // follows with a disconnect) won't be cured by reconnecting with it.
+        if (credential && settled) this.serverEndedSession = true;
         this.emit('authError', data.error);
         if (!settled) {
           settled = true;
@@ -203,20 +258,58 @@ export class SocketManager extends TypedEventEmitter<EstuaryEventMap> {
       // Wire up all server → client events
       this.bindServerEvents();
     });
+  }
 
-    this.connectPromise = promise;
-    const clear = () => {
-      if (this.connectPromise === promise) {
-        this.connectPromise = null;
-        this.abortPendingConnect = null;
+  /**
+   * Renews the client grant on the live socket shortly before it expires
+   * (`renew_authentication`, SDK_CONTRACT v1.31), so the conversation and its
+   * voice carry on uninterrupted. A refused or failed renewal ends the session
+   * with `authError` `credential_renewal_failed`: the gateway would cut it off
+   * at expiry anyway.
+   */
+  private scheduleRenewal(expiresAt: number): void {
+    this.clearRenewalTimer();
+    const delayMs = Math.max(1000, (expiresAt - Date.now() / 1000 - REFRESH_MARGIN_SECONDS) * 1000);
+    this.renewalTimer = setTimeout(() => { void this.renew(); }, delayMs);
+  }
+
+  private async renew(): Promise<void> {
+    this.renewalTimer = null;
+    const socket = this.socket;
+    if (!this.credentials || !socket?.connected) return;
+    try {
+      const credential = await this.credentials.get(true);
+      if (this.socket !== socket || !socket.connected) return;
+      const result: unknown = await socket.timeout(15_000).emitWithAck('renew_authentication', {
+        client_token: credential.token,
+      });
+      if (this.socket !== socket) return;
+      if (!result || typeof result !== 'object' || (result as { ok?: unknown }).ok !== true) {
+        throw new Error('Credential renewal was rejected');
       }
-    };
-    promise.then(clear, clear);
-    return promise;
+      const expiresAt = (result as { expiresAt?: unknown }).expiresAt;
+      this.scheduleRenewal(typeof expiresAt === 'number' ? expiresAt : credential.expiresAt);
+      this.logger.debug('Client grant renewed');
+    } catch (error) {
+      if (this.socket !== socket) return;
+      this.logger.error('Client grant renewal failed:', error instanceof Error ? error.message : error);
+      this.emit('authError', 'credential_renewal_failed');
+      this.disconnect();
+    }
+  }
+
+  private clearRenewalTimer(): void {
+    if (this.renewalTimer) {
+      clearTimeout(this.renewalTimer);
+      this.renewalTimer = null;
+    }
   }
 
   disconnect(): void {
     this.clearReconnectTimer();
+    this.clearRenewalTimer();
+    // A credential fetch still in flight must not open a socket afterwards.
+    this.connectGeneration++;
     // Settle any in-flight connect — its socket listeners are removed below,
     // so left alone the promise would hang forever (and connect() would keep
     // handing the hung promise out).
@@ -326,6 +419,7 @@ export class SocketManager extends TypedEventEmitter<EstuaryEventMap> {
   }
 
   private handleDisconnect(reason: string): void {
+    this.clearRenewalTimer();
     this.sessionInfo = null;
     this.setConnectionState(ConnectionState.Disconnected);
     this.emit('disconnected', reason);

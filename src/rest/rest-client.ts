@@ -1,3 +1,4 @@
+import type { CredentialProvider } from '../credentials';
 import { EstuaryError, ErrorCode } from '../errors';
 import { CLIENT_HEADER_NAME, CLIENT_HEADER_VALUE } from '../version';
 
@@ -7,11 +8,18 @@ export class RestClient {
   private baseUrl: string;
   private apiKey: string;
   private timeoutMs: number;
+  private credentials?: CredentialProvider;
 
-  constructor(baseUrl: string, apiKey: string, timeoutMs: number = DEFAULT_TIMEOUT_MS) {
+  /**
+   * With `credentials`, requests carry the client grant as
+   * `Authorization: Bearer` plus its `X-Player-Id` (SDK_CONTRACT v1.31) and
+   * never an `X-API-Key`.
+   */
+  constructor(baseUrl: string, apiKey: string, timeoutMs: number = DEFAULT_TIMEOUT_MS, credentials?: CredentialProvider) {
     this.baseUrl = baseUrl.replace(/\/+$/, '');
     this.apiKey = apiKey;
     this.timeoutMs = timeoutMs;
+    this.credentials = credentials;
   }
 
   async get<T>(path: string, params?: Record<string, string | number | boolean | undefined>): Promise<T> {
@@ -52,7 +60,14 @@ export class RestClient {
 
   private async request<T>(url: string, init: RequestInit): Promise<T> {
     const headers = new Headers(init.headers);
-    headers.set('X-API-Key', this.apiKey);
+    if (this.credentials) {
+      const credential = await this.credentials.get();
+      headers.delete('X-API-Key');
+      headers.set('Authorization', `Bearer ${credential.token}`);
+      headers.set('X-Player-Id', credential.playerId);
+    } else {
+      headers.set('X-API-Key', this.apiKey);
+    }
     headers.set(CLIENT_HEADER_NAME, CLIENT_HEADER_VALUE);
 
     const response = await fetch(url, {

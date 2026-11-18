@@ -28,7 +28,7 @@ default_playback_sample_rate: 24000    # TTS audio generated at 24kHz by default
 
 ## Parity Status
 
-Restricted client credentials: Pending (v1.31). Deferred by user decision; existing API-key/share-session integrations are unchanged.
+Restricted client credentials (v1.31): Implemented in 0.11.0 (2026-11-18) as `tokenProvider`, a port of the Python SDK's `token_provider`. See the `client_tokens` row.
 
 
 The optional LiveKit bot attribute `estuary.message_id` (2026-09-18) is not yet
@@ -38,6 +38,7 @@ ignore the additive field. Swift uses it for per-turn local avatar playback.
 | Feature | Status | Notes |
 |---------|--------|-------|
 | text_chat | Implemented | sendText(), botResponse event |
+| client_tokens | Implemented (0.11.0) | Contract v1.31. `tokenProvider` (`src/credentials.ts`) returns `{token, playerId, expiresAt}` from the app's backend. `CredentialProvider` caches it, shares one in-flight call, refetches within 30 s of expiry, rejects non-`ect_`/expired/header-injecting grants and a profile change. The socket authenticates with `client_token` and the grant's canonical `player_id` (never `api_key`), fetching the grant BEFORE `io()` (a `disconnect()` during the fetch wins via `connectGeneration`); without a provider the socket still opens synchronously. `renew_authentication` is sent on the live socket 30 s before expiry (`socket.timeout(15000).emitWithAck`); a refusal or provider failure emits `authError` `credential_renewal_failed` and disconnects. A mid-session `auth_error` with a grant sets `serverEndedSession` (no reconnect loop). REST sends `Authorization: Bearer` + `X-Player-Id`, no `X-API-Key`; `client.memory` is created in `connect()` from `session.playerId`. Live-verified 2026-11-18 against a local gateway: 60 s grants renewed 4 times, reply at 135 s, while an unrenewed control socket was cut at 64.6 s (`client_session_ended`). |
 | guardrail_visibility | Implemented | OPTIONAL contract v1.35 `guardrail_event` → typed `guardrailEvent`. Passive metadata only; does not clear audio/text or emit an interrupt. History is available through the public character REST endpoint. |
 | say_line | Implemented | `sayLine(text, textOnly?)` emits `say_line` with `text_only` flag (TTS by default) |
 | scripted_lines | Implemented (TS-only extension) | `playScript()`/`sayLines()` sequencer paces lines so back-to-back `say_line` calls don't interrupt each other; emits `scriptLineStarted`/`scriptComplete`. Layered on the shared `say_line` event — not present in the other SDKs. |

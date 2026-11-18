@@ -1,4 +1,5 @@
 import { SocketManager } from './connection/socket-manager';
+import { CredentialProvider } from './credentials';
 import { createVoiceManager } from './voice/voice-manager';
 import { RestClient } from './rest/rest-client';
 import { MemoryClient } from './rest/memory-client';
@@ -28,7 +29,8 @@ import { ScriptPlayer, type ScriptHost } from './scripting/script-player';
 
 const DEFAULT_SAMPLE_RATE = 24000;
 const REST_UNAVAILABLE_MESSAGE =
-  'REST API not available with session token auth. Use a server-side proxy for REST calls.';
+  'REST API not available with session token auth. Use a server-side proxy for REST calls, '
+  + 'or with tokenProvider, call connect() before using memory.';
 // After this long hidden, a socket that still reports connected is treated as
 // a zombie: past the server's Engine.IO ping window (~45s of silence) the
 // server side is gone, but a page resumed from iOS suspension only finds out
@@ -44,6 +46,10 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
   private _memory: MemoryClient | null = null;
   private _character: CharacterClient | null = null;
   private _sessionInfo: SessionInfo | null = null;
+  // Restricted client credentials (tokenProvider): the grant cache, and the
+  // Bearer REST client whose memory client waits for connect().
+  private credentials: CredentialProvider | null = null;
+  private restClient: RestClient | null = null;
   private actionParsers = new Map<string, StreamingActionParser>();
   private _hasAutoInterrupted = false;
   private _autoInterruptGraceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -66,22 +72,28 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
   constructor(config: EstuaryConfig) {
     super();
 
-    if (!config.apiKey && !config.sessionToken) {
+    if (!config.apiKey && !config.sessionToken && !config.tokenProvider) {
       throw new EstuaryError(
         ErrorCode.AUTH_FAILED,
-        'Either apiKey or sessionToken must be provided',
+        'One of apiKey, sessionToken or tokenProvider must be provided',
       );
     }
 
     this.config = { ...config }; // Voice mode is fixed for this client's sessions.
     this.logger = new Logger(config.debug ?? false);
-    this.socketManager = new SocketManager(config, this.logger);
+    this.credentials = config.tokenProvider ? new CredentialProvider(config.tokenProvider) : null;
+    this.socketManager = new SocketManager(config, this.logger, this.credentials);
     this.forwardSocketEvents();
     this.bindPageLifecycle();
 
-    // REST clients require an apiKey. Session-token flows (share links) must
-    // use a server-side proxy for any REST calls.
-    if (config.apiKey) {
+    // REST clients require an apiKey or a client grant. Session-token flows
+    // (share links) must use a server-side proxy for any REST calls.
+    if (this.credentials) {
+      // Grants authenticate REST with Bearer and are bound to their canonical
+      // player, which connect() learns: the memory client is created there.
+      this.restClient = new RestClient(config.serverUrl, '', undefined, this.credentials);
+      this._character = new CharacterClient(this.restClient);
+    } else if (config.apiKey) {
       const restClient = new RestClient(config.serverUrl, config.apiKey);
       this._memory = new MemoryClient(restClient, config.characterId, config.playerId);
       this._character = new CharacterClient(restClient);
@@ -151,6 +163,9 @@ export class EstuaryClient extends TypedEventEmitter<EstuaryEventMap> {
     this.logger.info('Connecting...');
     const session = await this.socketManager.connect();
     this._sessionInfo = session;
+    if (this.restClient && !this._memory) {
+      this._memory = new MemoryClient(this.restClient, this.config.characterId, session.playerId);
+    }
     return session;
   }
 

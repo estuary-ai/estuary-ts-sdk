@@ -1,15 +1,28 @@
+import type { TokenProvider } from './credentials';
+
 // ─── Configuration ───────────────────────────────────────────────
 
 export interface EstuaryConfig {
   /** Base URL of the Estuary server (e.g., "https://api.estuary-ai.com") */
   serverUrl: string;
-  /** API key (starts with "est_"). Required unless sessionToken is provided. */
+  /** API key (starts with "est_"). Required unless sessionToken or tokenProvider is provided. */
   apiKey?: string;
   /** Session token from share exchange (starts with "sst_"). Alternative to apiKey for share flows. */
   sessionToken?: string;
+  /**
+   * Restricted client credentials (SDK_CONTRACT v1.31): fetches a short-lived
+   * `ect_` grant from your own backend, which calls `POST /api/v1/client-tokens`
+   * with its server-only API key. The alternative to apiKey on end-user devices,
+   * which must never hold a developer key. The SDK renews the grant on the live
+   * socket before it expires, and reconnects with a fresh one.
+   */
+  tokenProvider?: TokenProvider;
   /** Character (agent) ID */
   characterId: string;
-  /** Unique identifier for the end user */
+  /**
+   * Unique identifier for the end user. With tokenProvider the grant's own
+   * playerId is used instead, since the grant is bound to it.
+   */
   playerId: string;
   /** Audio sample rate in Hz (default: 16000) */
   audioSampleRate?: number;

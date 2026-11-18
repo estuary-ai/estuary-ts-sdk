@@ -324,9 +324,11 @@ REST calls (`client.memory.*`, `client.getCharacter()`) reject with `ErrorCode.R
 ```typescript
 interface EstuaryConfig {
   serverUrl: string;           // Server URL
-  apiKey: string;              // API key (est_...)
+  apiKey?: string;             // API key (est_...). Or sessionToken, or tokenProvider
+  sessionToken?: string;       // Share-link session (sst_...)
+  tokenProvider?: TokenProvider; // End-user devices: short-lived grants from your backend
   characterId: string;         // Character ID
-  playerId: string;            // End user ID
+  playerId: string;            // End user ID (ignored with tokenProvider: the grant's own)
   audioSampleRate?: number;    // Default: 24000
   autoReconnect?: boolean;     // Default: true
   maxReconnectAttempts?: number; // Default: 5
@@ -349,6 +351,42 @@ interface SessionCapabilities {
   speaker?: boolean;    // Device has a usable speaker
 }
 ```
+
+### Client tokens (end-user devices)
+
+A browser or app you ship must never hold your `est_` API key. Keep the key on
+your backend, which mints a short-lived, restricted `ect_` grant per visitor
+through `POST /api/v1/client-tokens`
+([docs](https://docs.estuary-ai.com/docs/platform/client-tokens)). Give the SDK a
+`tokenProvider` that asks your backend for one:
+
+```typescript
+import { EstuaryClient, type ClientCredential } from '@estuary-ai/sdk';
+
+let sessionId: string | undefined;
+
+const client = new EstuaryClient({
+  serverUrl: 'https://api.estuary-ai.com',
+  characterId: 'your-approved-character-id',
+  playerId: '', // the grant's own playerId is used
+  tokenProvider: async (): Promise<ClientCredential> => {
+    // Your backend, with your own auth. Pass the sessionId back so it renews
+    // the same session rather than starting a new one.
+    const res = await fetch('/api/estuary-token', { method: 'POST', body: JSON.stringify({ sessionId }) });
+    const data = await res.json(); // what /client-tokens returned
+    sessionId = data.sessionId;
+    return { token: data.clientToken, playerId: data.playerId, expiresAt: data.expiresAt };
+  },
+});
+await client.connect();
+```
+
+The SDK caches the grant, uses it for the socket and for REST (as
+`Authorization: Bearer`), and renews it on the live socket 30 seconds before it
+expires, so a conversation outlasts any one grant (60 to 900 seconds). It
+reconnects with a fresh grant. If your backend or the gateway refuses a renewal,
+the session ends with `authError` `credential_renewal_failed`. `client.memory`
+is available once `connect()` resolves. Changing profiles needs a new client.
 
 ### Capability Declaration
 
@@ -405,6 +443,8 @@ import { parseActions } from '@estuary-ai/sdk';
 // Types (import type)
 import type {
   EstuaryConfig,
+  ClientCredential,
+  TokenProvider,
   SessionInfo,
   CharacterInfo,
   BotResponse,
